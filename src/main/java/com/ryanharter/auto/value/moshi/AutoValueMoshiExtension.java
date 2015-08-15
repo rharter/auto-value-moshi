@@ -1,14 +1,8 @@
-package com.ryanharter.auto.value.gson;
+package com.ryanharter.auto.value.moshi;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValueExtension;
 import com.google.common.collect.Lists;
-import com.google.gson.Gson;
-import com.google.gson.TypeAdapter;
-import com.google.gson.TypeAdapterFactory;
-import com.google.gson.reflect.TypeToken;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonWriter;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
@@ -19,6 +13,16 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 
+import com.squareup.javapoet.WildcardTypeName;
+import com.squareup.moshi.Json;
+import com.squareup.moshi.JsonAdapter;
+import com.squareup.moshi.JsonReader;
+import com.squareup.moshi.JsonWriter;
+import com.squareup.moshi.Moshi;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Type;
+import java.util.Arrays;
+import java.util.Set;
 import javax.lang.model.element.ExecutableElement;
 import java.io.IOException;
 import java.util.Iterator;
@@ -27,6 +31,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -36,7 +41,7 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
  * Created by rharter on 7/20/15.
  */
 @AutoService(AutoValueExtension.class)
-public class AutoValueGsonExtension implements AutoValueExtension {
+public class AutoValueMoshiExtension implements AutoValueExtension {
 
   public static class Property {
     String name;
@@ -53,9 +58,9 @@ public class AutoValueGsonExtension implements AutoValueExtension {
     }
 
     public String serializedName() {
-      SerializedName serializedName = element.getAnnotation(SerializedName.class);
-      if (serializedName != null) {
-        return serializedName.value();
+      Json json = element.getAnnotation(Json.class);
+      if (json != null) {
+        return json.name();
       } else {
         return name;
       }
@@ -82,9 +87,9 @@ public class AutoValueGsonExtension implements AutoValueExtension {
     ClassName classNameClass = ClassName.get(context.packageName(), className);
     ClassName autoValueClass = ClassName.bestGuess(context.autoValueClass().getQualifiedName().toString());
 
-    TypeSpec typeAdapter = createTypeAdapter(className, fqAutoValueClass, properties);
-    TypeSpec typeAdapterFactory = createTypeAdapterFactory(classNameClass, autoValueClass, typeAdapter, types);
-    MethodSpec typeAdapterFactoryMethod = createTypeAdapterFactoryMethod(typeAdapterFactory);
+    TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, properties);
+    TypeSpec typeAdapterFactory = createJsonAdapterFactory(classNameClass, autoValueClass, typeAdapter, types);
+    MethodSpec typeAdapterFactoryMethod = createJsonAdapterFactoryMethod(typeAdapterFactory);
 
     TypeSpec.Builder subclass = TypeSpec.classBuilder(className)
         .superclass(TypeVariableName.get(classToExtend))
@@ -143,7 +148,7 @@ public class AutoValueGsonExtension implements AutoValueExtension {
     return types;
   }
 
-  public MethodSpec createTypeAdapterFactoryMethod(TypeSpec typeAdapterFactory) {
+  public MethodSpec createJsonAdapterFactoryMethod(TypeSpec typeAdapterFactory) {
     return MethodSpec.methodBuilder("typeAdapterFactory")
         .addModifiers(PUBLIC, STATIC)
         .returns(ClassName.bestGuess(typeAdapterFactory.name))
@@ -151,94 +156,90 @@ public class AutoValueGsonExtension implements AutoValueExtension {
         .build();
   }
 
-  public TypeSpec createTypeAdapterFactory(ClassName className, ClassName autoValueClassName, TypeSpec typeAdapter, Map<String, TypeName> properties) {
-    String customTypeAdapterFactoryName = String.format("%sTypeAdapterFactory", autoValueClassName.simpleName());
+  public TypeSpec createJsonAdapterFactory(ClassName className, ClassName autoValueClassName, TypeSpec typeAdapter, Map<String, TypeName> properties) {
+    String customJsonAdapterFactory = String.format("AutoValue_%sJsonAdapterFactory", autoValueClassName.simpleName());
 
-    TypeVariableName t = TypeVariableName.get("T");
-    TypeName typeAdapterType = ParameterizedTypeName.get(ClassName.get(TypeAdapter.class), t);
-    TypeName typeTokenType = ParameterizedTypeName.get(ClassName.get(TypeToken.class), t);
-    ParameterSpec gson = ParameterSpec.builder(Gson.class, "gson").build();
-    ParameterSpec typeToken = ParameterSpec.builder(typeTokenType, "typeToken").build();
+    TypeName jsonAdapterType = ParameterizedTypeName.get(ClassName.get(JsonAdapter.class), autoValueClassName);
+    TypeName setOfAnnotations = ParameterizedTypeName.get(ClassName.get(Set.class), WildcardTypeName.subtypeOf(Annotation.class));
+    ParameterSpec type = ParameterSpec.builder(Type.class, "type").build();
+    ParameterSpec annotations = ParameterSpec.builder(setOfAnnotations, "annotations").build();
+    ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
     MethodSpec createMethod = MethodSpec.methodBuilder("create")
         .addModifiers(PUBLIC)
         .addAnnotation(Override.class)
-        .addTypeVariable(t)
-        .returns(typeAdapterType)
-        .addParameter(gson)
-        .addParameter(typeToken)
-        .addStatement("if (!$T.class.isAssignableFrom($N.getRawType())) return null", autoValueClassName, typeToken)
-        .addStatement("return ($T) new $N($N)", typeAdapterType, typeAdapter, gson)
+        .returns(jsonAdapterType)
+        .addParameters(Arrays.asList(type, annotations, moshi))
+        .addStatement("if (!($N instanceof $T)) return null", type, autoValueClassName)
+        .addStatement("return ($T) new $N($N)", jsonAdapterType, typeAdapter, moshi)
         .build();
 
-    return TypeSpec.classBuilder(customTypeAdapterFactoryName)
+    return TypeSpec.classBuilder(customJsonAdapterFactory)
         .addModifiers(PUBLIC, STATIC, FINAL)
-        .addSuperinterface(TypeAdapterFactory.class)
+        .addSuperinterface(JsonAdapter.Factory.class)
         .addMethod(createMethod)
         .build();
   }
 
-  public TypeSpec createTypeAdapter(String className, String autoValueClassName, List<Property> properties) {
-    ClassName annotatedClass = ClassName.bestGuess(autoValueClassName);
-    ClassName typeAdapterClass = ClassName.get(TypeAdapter.class);
-    ParameterizedTypeName superClass = ParameterizedTypeName.get(typeAdapterClass, annotatedClass);
+  public TypeSpec createTypeAdapter(ClassName className, ClassName autoValueClassName, List<Property> properties) {
+    ClassName jsonAdapter = ClassName.get(JsonAdapter.class);
+    TypeName typeAdapterClass = ParameterizedTypeName.get(jsonAdapter, autoValueClassName);
 
-    FieldSpec gsonField = FieldSpec.builder(Gson.class, "gson").build();
+    FieldSpec moshiField = FieldSpec.builder(Moshi.class, "moshi", PRIVATE, FINAL).build();
 
-    String customTypeAdapterClass = String.format("%sTypeAdapter", annotatedClass.simpleName());
+    String customTypeAdapterClass = String.format("AutoValue_%sJsonAdapter", autoValueClassName.simpleName());
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder(customTypeAdapterClass)
         .addModifiers(PUBLIC, STATIC, FINAL)
-        .superclass(superClass)
-        .addField(gsonField)
+        .addModifiers(PUBLIC, STATIC, FINAL)
+        .superclass(typeAdapterClass)
+        .addField(moshiField)
         .addMethod(MethodSpec.constructorBuilder()
                 .addModifiers(PUBLIC)
-                .addParameter(Gson.class, "gson")
-                .addStatement("this.$N = gson", gsonField)
+                .addParameter(Moshi.class, "moshi")
+                .addStatement("this.$N = moshi", moshiField)
                 .build()
         )
-        .addMethod(createWriteMethod(gsonField, autoValueClassName, properties))
-        .addMethod(createReadMethod(gsonField, className, autoValueClassName, properties));
+        .addMethod(createReadMethod(moshiField, className, autoValueClassName, properties))
+        .addMethod(createWriteMethod(moshiField, autoValueClassName, properties));
 
 
     return classBuilder.build();
   }
 
-  public MethodSpec createWriteMethod(FieldSpec gsonField, String autoValueClassName, List<Property> properties) {
-    ParameterSpec jsonWriter = ParameterSpec.builder(JsonWriter.class, "jsonWriter").build();
-    ClassName annotatedClass = ClassName.bestGuess(autoValueClassName);
-    ParameterSpec annotatedParam = ParameterSpec.builder(annotatedClass, "object").build();
-    MethodSpec.Builder writeMethod = MethodSpec.methodBuilder("write")
+  public MethodSpec createWriteMethod(FieldSpec moshiField, ClassName autoValueClassName, List<Property> properties) {
+    ParameterSpec writer = ParameterSpec.builder(JsonWriter.class, "writer").build();
+    ParameterSpec value = ParameterSpec.builder(autoValueClassName, "value").build();
+    MethodSpec.Builder writeMethod = MethodSpec.methodBuilder("toJson")
         .addAnnotation(Override.class)
         .addModifiers(PUBLIC)
-        .addParameter(jsonWriter)
-        .addParameter(annotatedParam)
+        .addParameter(writer)
+        .addParameter(value)
         .addException(IOException.class);
 
-    writeMethod.addStatement("$N.beginObject()", jsonWriter);
+    writeMethod.addStatement("$N.beginObject()", writer);
     for (Property prop : properties) {
-      writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
-      writeMethod.addStatement("$N.getAdapter($T.class).write($N, $N.$N())", gsonField,
-          prop.type.isPrimitive() ? prop.type.box() : prop.type, jsonWriter, annotatedParam, prop.name);
+      writeMethod.addStatement("$N.name($S)", writer, prop.serializedName());
+      writeMethod.addStatement("$N.adapter($T.class).toJson($N, $N.$N())", moshiField,
+          prop.type.isPrimitive() ? prop.type.box() : prop.type, writer, value, prop.name);
     }
-    writeMethod.addStatement("$N.endObject()", jsonWriter);
+    writeMethod.addStatement("$N.endObject()", writer);
 
     return writeMethod.build();
   }
 
-  public MethodSpec createReadMethod(FieldSpec gsonField, String className,
-                                     String autoValueClassName, List<Property> properties) {
-    ParameterSpec jsonReader = ParameterSpec.builder(JsonReader.class, "jsonReader").build();
-    ClassName annotatedClass = ClassName.bestGuess(autoValueClassName);
-    MethodSpec.Builder readMethod = MethodSpec.methodBuilder("read")
+  public MethodSpec createReadMethod(FieldSpec moshiField, ClassName className,
+                                     ClassName autoValueClassName, List<Property> properties) {
+    ParameterSpec reader = ParameterSpec.builder(JsonReader.class, "reader").build();
+    MethodSpec.Builder readMethod = MethodSpec.methodBuilder("fromJson")
         .addAnnotation(Override.class)
         .addModifiers(PUBLIC)
-        .returns(annotatedClass)
-        .addParameter(jsonReader)
+        .returns(autoValueClassName)
+        .addParameter(reader)
         .addException(IOException.class);
 
-    readMethod.addStatement("$N.beginObject()", jsonReader);
+    readMethod.addStatement("$N.beginObject()", reader);
 
     // add the properties
-    Map<Property, FieldSpec> fields = new LinkedHashMap<Property, FieldSpec>(properties.size());
+    Map<Property, FieldSpec> fields = new LinkedHashMap<>(properties.size());
     for (Property prop : properties) {
       FieldSpec field = FieldSpec.builder(prop.type, prop.name).build();
       fields.put(prop, field);
@@ -246,10 +247,10 @@ public class AutoValueGsonExtension implements AutoValueExtension {
       readMethod.addStatement("$T $N = null", field.type.isPrimitive() ? field.type.box() : field.type, field);
     }
 
-    readMethod.beginControlFlow("while ($N.hasNext())", jsonReader);
+    readMethod.beginControlFlow("while ($N.hasNext())", reader);
 
     FieldSpec name = FieldSpec.builder(String.class, "_name").build();
-    readMethod.addStatement("$T $N = $N.nextName()", name.type, name, jsonReader);
+    readMethod.addStatement("$T $N = $N.nextName()", name.type, name, reader);
 
     boolean first = true;
     for (Map.Entry<Property, FieldSpec> entry : fields.entrySet()) {
@@ -257,17 +258,17 @@ public class AutoValueGsonExtension implements AutoValueExtension {
       FieldSpec field = entry.getValue();
       if (first) readMethod.beginControlFlow("if ($S.equals($N))", prop.serializedName(), name);
       else readMethod.nextControlFlow("else if ($S.equals($N))", prop.serializedName(), name);
-      readMethod.addStatement("$N = $N.getAdapter($T.class).read($N)", field, gsonField,
-          field.type.isPrimitive() ? field.type.box() : field.type, jsonReader);
+      readMethod.addStatement("$N = $N.adapter($T.class).fromJson($N)", field, moshiField,
+          field.type.isPrimitive() ? field.type.box() : field.type, reader);
       first = false;
     }
     readMethod.endControlFlow(); // if/else if
     readMethod.endControlFlow(); // while
 
-    readMethod.addStatement("$N.endObject()", jsonReader);
+    readMethod.addStatement("$N.endObject()", reader);
 
     StringBuilder format = new StringBuilder("return new ");
-    format.append(className.replaceAll("\\$", ""));
+    format.append(className.simpleName().replaceAll("\\$", ""));
     format.append("(");
     Iterator<FieldSpec> iterator = fields.values().iterator();
     while (iterator.hasNext()) {

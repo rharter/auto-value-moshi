@@ -1,35 +1,29 @@
-# AutoValue: Gson Extension
+# AutoValue: Moshi Extension
 
 [![Build Status](https://travis-ci.org/rharter/auto-value-gson.svg?branch=master)](https://travis-ci.org/rharter/auto-value-gson)
 
-An extension for Google's [AutoValue](https://github.com/google/auto) that creates a simple [Gson](https://github.com/google/gson) TypeAdapterFactory for each AutoValue annotated object.
-
-**Note**: This is a very early version that won't work with the released AutoValue until a [PR](https://github.com/google/auto/pull/237) has been merged.
+An extension for Google's [AutoValue](https://github.com/google/auto) that creates a simple [Moshi](https://github.com/square/moshi) JsonAdapterFactory for each AutoValue annotated object.
 
 ## Usage
 
-[![Build Status](https://travis-ci.org/rharter/auto-value-gson.svg)](https://travis-ci.org/rharter/auto-value-gson)
+[![Build Status](https://travis-ci.org/rharter/auto-value-moshi.svg)](https://travis-ci.org/rharter/auto-value-moshi)
 
-Simply include AutoGson in your project and add the generated Serializer and Deserializer as a TypeAdapter.  You can also annotate your properties using `@SerializedName` to define an alternate name for de/serialization.
+Simply include auto-value-moshi in your project and add the generated JsonAdapterFactory to your Moshi instance.  You can also annotate your properties using `@SerializedName` to define an alternate name for de/serialization.
 
 ```java
-import com.ryanharter.auto.value.gson.SerializedName;
-
 @AutoValue public abstract class Foo {
   abstract String bar();
-  @SerializedName("Baz") abstract String baz();
+  @Json(name="Baz") abstract String baz();
 
   public static TypeAdapterFactory typeAdapterFactory() {
     return AutoValue_Foo.typeAdapterFactory();
   }
 }
 
-final Gson gson = new GsonBuilder()
-  .registerTypeAdapterFactory(Foo.class, Foo.typeAdapterFactory())
-  .create();
+final Moshi moshi = new Moshi.Builder()
+    .add(Foo.typeAdapterFactory())
+    .build();
 ```
-
-**Note**: Since Gson's built in SerializedName annotation can't be used on methods, you'll have to change your `SerializedName` import to `com.ryanharter.auto.value.gson.SerializedName`.
 
 Now build your project and de/serialize your Foo.
 
@@ -45,7 +39,7 @@ This wouldn't be quite complete without some added features.
 Add a Gradle dependency:
 
 ```groovy
-compile 'com.ryanharter.auto.value:auto-value-gson:0.1-SNAPSHOT'
+compile 'com.ryanharter.auto.value:auto-value-moshi:0.1-SNAPSHOT'
 ```
 
 ## License
