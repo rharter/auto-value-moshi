@@ -1,12 +1,10 @@
 # AutoValue: Moshi Extension
 
-[![Build Status](https://travis-ci.org/rharter/auto-value-gson.svg?branch=master)](https://travis-ci.org/rharter/auto-value-gson)
+[![Build Status](https://travis-ci.org/rharter/auto-value-moshi.svg?branch=master)](https://travis-ci.org/rharter/auto-value-moshi)
 
 An extension for Google's [AutoValue](https://github.com/google/auto) that creates a simple [Moshi](https://github.com/square/moshi) JsonAdapterFactory for each AutoValue annotated object.
 
 ## Usage
-
-[![Build Status](https://travis-ci.org/rharter/auto-value-moshi.svg)](https://travis-ci.org/rharter/auto-value-moshi)
 
 Simply include auto-value-moshi in your project and add the generated JsonAdapterFactory to your Moshi instance.  You can also annotate your properties using `@SerializedName` to define an alternate name for de/serialization.
 
