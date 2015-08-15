@@ -4,6 +4,7 @@ import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValueExtension;
 import com.google.common.collect.Lists;
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
@@ -87,22 +88,26 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
     ClassName classNameClass = ClassName.get(context.packageName(), className);
     ClassName autoValueClass = ClassName.bestGuess(context.autoValueClass().getQualifiedName().toString());
 
-    TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, properties);
-    TypeSpec typeAdapterFactory = createJsonAdapterFactory(classNameClass, autoValueClass, typeAdapter, types);
-    MethodSpec typeAdapterFactoryMethod = createJsonAdapterFactoryMethod(typeAdapterFactory);
+    TypeSpec jsonAdapter = createJsonAdapter(classNameClass, autoValueClass, properties);
+    TypeSpec jsonAdapterFactory = createJsonAdapterFactory(classNameClass, autoValueClass, jsonAdapter, types);
+    MethodSpec jsonAdapterFactoryMethod = createJsonAdapterFactoryMethod(jsonAdapterFactory);
 
     TypeSpec.Builder subclass = TypeSpec.classBuilder(className)
         .superclass(TypeVariableName.get(classToExtend))
-        .addType(typeAdapterFactory)
-        .addType(typeAdapter)
+        .addType(jsonAdapterFactory)
+        .addType(jsonAdapter)
         .addMethod(generateConstructor(types))
-        .addMethod(typeAdapterFactoryMethod);
+        .addMethod(jsonAdapterFactoryMethod);
 
     if (isFinal) {
       subclass.addModifiers(FINAL);
     } else {
       subclass.addModifiers(ABSTRACT);
     }
+
+    subclass.addStaticBlock(CodeBlock.builder()
+        .addStatement("$T.register($N())", AutoValueMoshiJsonAdapterFactory.class, jsonAdapterFactoryMethod)
+        .build());
 
 
     return JavaFile.builder(context.packageName(), subclass.build()).build().toString();
@@ -148,15 +153,15 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
     return types;
   }
 
-  public MethodSpec createJsonAdapterFactoryMethod(TypeSpec typeAdapterFactory) {
-    return MethodSpec.methodBuilder("typeAdapterFactory")
+  public MethodSpec createJsonAdapterFactoryMethod(TypeSpec jsonAdapterFactory) {
+    return MethodSpec.methodBuilder("jsonAdapterFactory")
         .addModifiers(PUBLIC, STATIC)
-        .returns(ClassName.bestGuess(typeAdapterFactory.name))
-        .addStatement("return new $N()", typeAdapterFactory)
+        .returns(ClassName.bestGuess(jsonAdapterFactory.name))
+        .addStatement("return new $N()", jsonAdapterFactory)
         .build();
   }
 
-  public TypeSpec createJsonAdapterFactory(ClassName className, ClassName autoValueClassName, TypeSpec typeAdapter, Map<String, TypeName> properties) {
+  public TypeSpec createJsonAdapterFactory(ClassName className, ClassName autoValueClassName, TypeSpec jsonAdapter, Map<String, TypeName> properties) {
     String customJsonAdapterFactory = String.format("AutoValue_%sJsonAdapterFactory", autoValueClassName.simpleName());
 
     TypeName jsonAdapterType = ParameterizedTypeName.get(ClassName.get(JsonAdapter.class), autoValueClassName);
@@ -170,7 +175,7 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
         .returns(jsonAdapterType)
         .addParameters(Arrays.asList(type, annotations, moshi))
         .addStatement("if (!($N instanceof $T)) return null", type, autoValueClassName)
-        .addStatement("return ($T) new $N($N)", jsonAdapterType, typeAdapter, moshi)
+        .addStatement("return ($T) new $N($N)", jsonAdapterType, jsonAdapter, moshi)
         .build();
 
     return TypeSpec.classBuilder(customJsonAdapterFactory)
@@ -180,17 +185,17 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
         .build();
   }
 
-  public TypeSpec createTypeAdapter(ClassName className, ClassName autoValueClassName, List<Property> properties) {
+  public TypeSpec createJsonAdapter(ClassName className, ClassName autoValueClassName, List<Property> properties) {
     ClassName jsonAdapter = ClassName.get(JsonAdapter.class);
-    TypeName typeAdapterClass = ParameterizedTypeName.get(jsonAdapter, autoValueClassName);
+    TypeName jsonAdapterClass = ParameterizedTypeName.get(jsonAdapter, autoValueClassName);
 
     FieldSpec moshiField = FieldSpec.builder(Moshi.class, "moshi", PRIVATE, FINAL).build();
 
-    String customTypeAdapterClass = String.format("AutoValue_%sJsonAdapter", autoValueClassName.simpleName());
-    TypeSpec.Builder classBuilder = TypeSpec.classBuilder(customTypeAdapterClass)
+    String customJsonAdapterClass = String.format("AutoValue_%sJsonAdapter", autoValueClassName.simpleName());
+    TypeSpec.Builder classBuilder = TypeSpec.classBuilder(customJsonAdapterClass)
         .addModifiers(PUBLIC, STATIC, FINAL)
         .addModifiers(PUBLIC, STATIC, FINAL)
-        .superclass(typeAdapterClass)
+        .superclass(jsonAdapterClass)
         .addField(moshiField)
         .addMethod(MethodSpec.constructorBuilder()
                 .addModifiers(PUBLIC)
