@@ -13,29 +13,22 @@ import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
 public class AutoValueMoshiExtensionTest {
 
-  private JavaFileObject serializedName;
+  private JavaFileObject factoryFactory;
 
   @Before public void setup() {
-    serializedName = JavaFileObjects.forSourceString("com.ryanharter.auto.value.moshi.SerializedName", ""
+    factoryFactory = JavaFileObjects.forSourceString("com.ryanharter.auto.value.moshi.AutoValueMoshiJsonAdapterFactory", ""
         + "package com.ryanharter.auto.value.moshi;\n"
-        + "import java.lang.annotation.Retention;\n"
-        + "import java.lang.annotation.Target;\n"
-        + "import static java.lang.annotation.ElementType.METHOD;\n"
-        + "import static java.lang.annotation.ElementType.PARAMETER;\n"
-        + "import static java.lang.annotation.ElementType.FIELD;\n"
-        + "import static java.lang.annotation.RetentionPolicy.SOURCE;\n"
-        + "@Retention(SOURCE)\n"
-        + "@Target({METHOD, PARAMETER, FIELD})\n"
-        + "public @interface SerializedName {\n"
-        + "  String value();\n"
-        + "}");
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "public class AutoValueMoshiJsonAdapterFactory {\n"
+        + "public static void register(JsonAdapter.Factory adapter) {}\n"
+        + "}"
+    );
   }
 
   @Test public void simple() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
             + "package test;\n"
             + "import com.squareup.moshi.Json;\n"
-            + "import com.ryanharter.auto.value.moshi.SerializedName;\n"
             + "import com.google.auto.value.AutoValue;\n"
             + "@AutoValue public abstract class Test {\n"
             // Reference type
@@ -52,6 +45,7 @@ public class AutoValueMoshiExtensionTest {
     JavaFileObject expected = JavaFileObjects.forSourceString("test/AutoValue_Test", ""
             + "package test;\n"
             + "\n"
+            + "import com.ryanharter.auto.value.moshi.AutoValueMoshiJsonAdapterFactory;"
             + "import com.squareup.moshi.JsonAdapter;\n"
             + "import com.squareup.moshi.JsonReader;\n"
             + "import com.squareup.moshi.JsonWriter;\n"
@@ -65,11 +59,15 @@ public class AutoValueMoshiExtensionTest {
             + "import java.util.Set;\n"
             + "\n"
             + "final class AutoValue_Test extends $AutoValue_Test {\n"
+            + "  static {\n"
+            + "    AutoValueMoshiJsonAdapterFactory.register(jsonAdapterFactory());\n"
+            + "  }\n"
+            + "\n"
             + "  AutoValue_Test(String a, int[] b, int c, String d) {\n"
             + "    super(a, b, c, d);\n"
             + "  }\n"
             + "\n"
-            + "  public static AutoValue_TestJsonAdapterFactory typeAdapterFactory() {\n"
+            + "  public static AutoValue_TestJsonAdapterFactory jsonAdapterFactory() {\n"
             + "    return new AutoValue_TestJsonAdapterFactory();\n"
             + "  }\n"
             + "\n"
@@ -123,12 +121,12 @@ public class AutoValueMoshiExtensionTest {
             + "      moshi.adapter(String.class).toJson(writer, value.d());\n"
             + "      writer.endObject();\n"
             + "    }\n"
-            + "  }"
+            + "  }\n"
             + "}"
     );
 
     assertAbout(javaSources())
-        .that(Arrays.asList(serializedName, source))
+        .that(Arrays.asList(factoryFactory, source))
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
         .and()
