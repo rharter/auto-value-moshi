@@ -12,34 +12,32 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
-
 import com.squareup.javapoet.WildcardTypeName;
 import com.squareup.moshi.Json;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonReader;
 import com.squareup.moshi.JsonWriter;
 import com.squareup.moshi.Moshi;
+
+import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.Arrays;
-import java.util.Set;
-import javax.lang.model.element.ExecutableElement;
-import java.io.IOException;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import javax.lang.model.element.ExecutableElement;
+
+import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.ABSTRACT;
 
-/**
- * Created by rharter on 7/20/15.
- */
 @AutoService(AutoValueExtension.class)
 public class AutoValueMoshiExtension implements AutoValueExtension {
 
@@ -81,14 +79,13 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
   public String generateClass(Context context, String className, String classToExtend, boolean isFinal) {
     List<Property> properties = readProperties(context.properties());
 
-    String fqAutoValueClass = context.autoValueClass().getQualifiedName().toString();
     Map<String, TypeName> types = convertPropertiesToTypes(context.properties());
 
     ClassName classNameClass = ClassName.get(context.packageName(), className);
     ClassName autoValueClass = ClassName.bestGuess(context.autoValueClass().getQualifiedName().toString());
 
     TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, properties);
-    TypeSpec typeAdapterFactory = createJsonAdapterFactory(classNameClass, autoValueClass, typeAdapter, types);
+    TypeSpec typeAdapterFactory = createJsonAdapterFactory(autoValueClass, typeAdapter);
     MethodSpec typeAdapterFactoryMethod = createJsonAdapterFactoryMethod(typeAdapterFactory);
 
     TypeSpec.Builder subclass = TypeSpec.classBuilder(className)
@@ -156,7 +153,7 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
         .build();
   }
 
-  public TypeSpec createJsonAdapterFactory(ClassName className, ClassName autoValueClassName, TypeSpec typeAdapter, Map<String, TypeName> properties) {
+  public TypeSpec createJsonAdapterFactory(ClassName autoValueClassName, TypeSpec typeAdapter) {
     String customJsonAdapterFactory = String.format("AutoValue_%sJsonAdapterFactory", autoValueClassName.simpleName());
 
     TypeName jsonAdapterType = ParameterizedTypeName.get(ClassName.get(JsonAdapter.class), autoValueClassName);
@@ -169,7 +166,7 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
         .addAnnotation(Override.class)
         .returns(jsonAdapterType)
         .addParameters(Arrays.asList(type, annotations, moshi))
-        .addStatement("if (!($N instanceof $T)) return null", type, autoValueClassName)
+        .addStatement("if (!$N.equals($T.class)) return null", type, autoValueClassName)
         .addStatement("return ($T) new $N($N)", jsonAdapterType, typeAdapter, moshi)
         .build();
 
@@ -239,7 +236,7 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
     readMethod.addStatement("$N.beginObject()", reader);
 
     // add the properties
-    Map<Property, FieldSpec> fields = new LinkedHashMap<>(properties.size());
+    Map<Property, FieldSpec> fields = new LinkedHashMap<Property, FieldSpec>(properties.size());
     for (Property prop : properties) {
       FieldSpec field = FieldSpec.builder(prop.type, prop.name).build();
       fields.put(prop, field);

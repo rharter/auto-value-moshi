@@ -2,11 +2,13 @@ package com.ryanharter.auto.value.moshi;
 
 import com.google.auto.value.processor.AutoValueProcessor;
 import com.google.testing.compile.JavaFileObjects;
+
 import org.junit.Before;
 import org.junit.Test;
 
-import javax.tools.JavaFileObject;
 import java.util.Arrays;
+
+import javax.tools.JavaFileObject;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
@@ -76,7 +78,7 @@ public class AutoValueMoshiExtensionTest {
             + "  public static final class AutoValue_TestJsonAdapterFactory implements JsonAdapter.Factory {\n"
             + "    @Override\n"
             + "    public JsonAdapter<Test> create(Type type, Set<? extends Annotation> annotations, Moshi moshi) {\n"
-            + "      if (!(type instanceof Test)) return null;\n"
+            + "      if (!type.equals(Test.class)) return null;\n"
             + "      return (JsonAdapter<Test>) new AutoValue_TestJsonAdapter(moshi);\n"
             + "    }\n"
             + "  }\n"
