@@ -33,83 +33,6 @@ public class AutoValueMoshiExtensionTest {
         + "}");
   }
 
-  @Test public void nestedParameterizedTypes() {
-    JavaFileObject source = JavaFileObjects.forSourceString("test.Test", "" +
-        "package test;\n" +
-        "import com.squareup.moshi.Json;\n" +
-        "import com.google.auto.value.AutoValue;\n" +
-        "import java.util.Map;\n" +
-        "import java.util.Set;\n" +
-        "@AutoValue public abstract class Test {\n" +
-        "  public abstract Map<String, Set<String>> a();\n" +
-        "}");
-
-    JavaFileObject expected = JavaFileObjects.forSourceString("test/AutoValue_Test", "" +
-        "package test;\n" +
-        "\n" +
-        "import com.squareup.moshi.JsonAdapter;\n" +
-        "import com.squareup.moshi.JsonReader;\n" +
-        "import com.squareup.moshi.JsonWriter;\n" +
-        "import com.squareup.moshi.Moshi;\n" +
-        "import com.squareup.moshi.Types;\n" +
-        "import java.io.IOException;\n" +
-        "import java.lang.Override;\n" +
-        "import java.lang.String;\n" +
-        "import java.lang.annotation.Annotation;\n" +
-        "import java.lang.reflect.Type;\n" +
-        "import java.util.Map;\n" +
-        "import java.util.Set;\n" +
-        "\n" +
-        "final class AutoValue_Test extends $AutoValue_Test {\n" +
-        "  AutoValue_Test(Map<String, Set<String>> a) {\n" +
-        "    super(a);\n" +
-        "  }\n" +
-        "  public static AutoValue_TestJsonAdapterFactory typeAdapterFactory() {\n" +
-        "    return new AutoValue_TestJsonAdapterFactory();\n" +
-        "  }\n" +
-        "  public static final class AutoValue_TestJsonAdapterFactory implements JsonAdapter.Factory {\n" +
-        "    @Override\n" +
-        "    public JsonAdapter<Test> create(Type type, Set<? extends Annotation> annotations, Moshi moshi) {\n" +
-        "      if (!type.equals(Test.class)) return null;\n" +
-        "      return (JsonAdapter<Test>) new AutoValue_TestJsonAdapter(moshi);\n" +
-        "    }\n" +
-        "  }\n" +
-        "  public static final class AutoValue_TestJsonAdapter extends JsonAdapter<Test> {\n" +
-        "    private final Moshi moshi;\n" +
-        "    public AutoValue_TestJsonAdapter(Moshi moshi) {\n" +
-        "      this.moshi = moshi;\n" +
-        "    }\n" +
-        "    @Override\n" +
-        "    public Test fromJson(JsonReader reader) throws IOException {\n" +
-        "      reader.beginObject();\n" +
-        "      Map<String, Set<String>> a = null;\n" +
-        "      while (reader.hasNext()) {\n" +
-        "        String _name = reader.nextName();\n" +
-        "        if (\"a\".equals(_name)) {\n" +
-        "          a = moshi.<Map<String, Set<String>>>adapter(Types.newParameterizedType(Map.class, String.class, Types.newParameterizedType(Set.class, String.class))).fromJson(reader);\n" +
-        "        }\n" +
-        "      }\n" +
-        "      reader.endObject();\n" +
-        "      return new AutoValue_Test(a);\n" +
-        "    }\n" +
-        "    @Override\n" +
-        "    public void toJson(JsonWriter writer, Test value) throws IOException {\n" +
-        "      writer.beginObject();\n" +
-        "      writer.name(\"a\");\n" +
-        "      moshi.<Map<String, Set<String>>>adapter(Types.newParameterizedType(Map.class, String.class, Types.newParameterizedType(Set.class, String.class))).toJson(writer, value.a());\n" +
-        "      writer.endObject();\n" +
-        "    }\n" +
-        "  }\n" +
-        "}");
-
-    assertAbout(javaSources())
-        .that(Arrays.asList(serializedName, source))
-        .processedWith(new AutoValueProcessor())
-        .compilesWithoutError()
-        .and()
-        .generatesSources(expected);
-  }
-
   @Test public void simple() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
             + "package test;\n"
@@ -131,6 +54,8 @@ public class AutoValueMoshiExtensionTest {
             + "public abstract Map<String, Number> e();\n"
             // Parametrized type, single parameter
             + "public abstract Set<String> f();\n"
+            // Nested parameterized type
+            + "public abstract Map<String, Set<String>> g();\n"
             + "}\n"
     );
 
@@ -153,8 +78,8 @@ public class AutoValueMoshiExtensionTest {
             + "import java.util.Set;\n"
             + "\n"
             + "final class AutoValue_Test extends $AutoValue_Test {\n"
-            + "  AutoValue_Test(String a, int[] b, int c, String d, Map<String, Number> e, Set<String> f) {\n"
-            + "    super(a, b, c, d, e, f);\n"
+            + "  AutoValue_Test(String a, int[] b, int c, String d, Map<String, Number> e, Set<String> f, Map<String, Set<String>> g) {\n"
+            + "    super(a, b, c, d, e, f, g);\n"
             + "  }\n"
             + "\n"
             + "  public static AutoValue_TestJsonAdapterFactory typeAdapterFactory() {\n"
@@ -172,9 +97,23 @@ public class AutoValueMoshiExtensionTest {
             + "  public static final class AutoValue_TestJsonAdapter extends JsonAdapter<Test> {\n"
             + "  \n"
             + "    private final Moshi moshi;\n"
+            + "    private final JsonAdapter<String> aAdapter;\n"
+            + "    private final JsonAdapter<int[]> bAdapter;\n"
+            + "    private final JsonAdapter<Integer> cAdapter;\n"
+            + "    private final JsonAdapter<String> dAdapter;\n"
+            + "    private final JsonAdapter<Map<String, Number>> eAdapter;\n"
+            + "    private final JsonAdapter<Set<String>> fAdapter;\n"
+            + "    private final JsonAdapter<Map<String, Set<String>>> gAdapter;\n"
             + "  \n"
             + "    public AutoValue_TestJsonAdapter(Moshi moshi) {\n"
             + "      this.moshi = moshi;\n"
+            + "      this.aAdapter = moshi.adapter(String.class);\n"
+            + "      this.bAdapter = moshi.adapter(int[].class);\n"
+            + "      this.cAdapter = moshi.adapter(Integer.class);\n"
+            + "      this.dAdapter = moshi.adapter(String.class);\n"
+            + "      this.eAdapter = moshi.adapter(Types.newParameterizedType(Map.class, String.class, Number.class));\n"
+            + "      this.fAdapter = moshi.adapter(Types.newParameterizedType(Set.class, String.class));\n"
+            + "      this.gAdapter = moshi.adapter(Types.newParameterizedType(Map.class, String.class, Types.newParameterizedType(Set.class, String.class)));\n"
             + "    }\n"
             + "  \n"
             + "    @Override public Test fromJson(JsonReader reader) throws IOException {\n"
@@ -185,40 +124,45 @@ public class AutoValueMoshiExtensionTest {
             + "      String d = null;\n"
             + "      Map<String, Number> e = null;\n"
             + "      Set<String> f = null;\n"
+            + "      Map<String, Set<String>> g = null;"
             + "      while (reader.hasNext()) {\n"
             + "        String _name = reader.nextName();\n"
             + "        if (\"a\".equals(_name)) {\n"
-            + "          a = moshi.adapter(String.class).fromJson(reader);\n"
+            + "          a = aAdapter.fromJson(reader);\n"
             + "        } else if (\"b\".equals(_name)) {\n"
-            + "          b = moshi.adapter(int[].class).fromJson(reader);\n"
+            + "          b = bAdapter.fromJson(reader);\n"
             + "        } else if (\"c\".equals(_name)) {\n"
-            + "          c = moshi.adapter(Integer.class).fromJson(reader);\n"
+            + "          c = cAdapter.fromJson(reader);\n"
             + "        } else if (\"d\".equals(_name)) {\n"
-            + "          d = moshi.adapter(String.class).fromJson(reader);\n"
+            + "          d = dAdapter.fromJson(reader);\n"
             + "        } else if (\"e\".equals(_name)) {\n"
-            + "          e = moshi.<Map<String, Number>>adapter(Types.newParameterizedType(Map.class, String.class, Number.class)).fromJson(reader);\n"
+            + "          e = eAdapter.fromJson(reader);\n"
             + "        } else if (\"f\".equals(_name)) {\n"
-            + "          f = moshi.<Set<String>>adapter(Types.newParameterizedType(Set.class, String.class)).fromJson(reader);\n"
+            + "          f = fAdapter.fromJson(reader);\n"
+            + "        } else if (\"g\".equals(_name)) {\n"
+            + "          g = gAdapter.fromJson(reader);\n"
             + "        }\n"
             + "      }\n"
             + "      reader.endObject();\n"
-            + "      return new AutoValue_Test(a, b, c, d, e, f);\n"
+            + "      return new AutoValue_Test(a, b, c, d, e, f, g);\n"
             + "    }\n"
             + "  \n"
             + "    @Override public void toJson(JsonWriter writer, Test value) throws IOException {\n"
             + "      writer.beginObject();\n"
             + "      writer.name(\"a\");\n"
-            + "      moshi.adapter(String.class).toJson(writer, value.a());\n"
+            + "      aAdapter.toJson(writer, value.a());\n"
             + "      writer.name(\"b\");\n"
-            + "      moshi.adapter(int[].class).toJson(writer, value.b());\n"
+            + "      bAdapter.toJson(writer, value.b());\n"
             + "      writer.name(\"c\");\n"
-            + "      moshi.adapter(Integer.class).toJson(writer, value.c());\n"
+            + "      cAdapter.toJson(writer, value.c());\n"
             + "      writer.name(\"d\");\n"
-            + "      moshi.adapter(String.class).toJson(writer, value.d());\n"
+            + "      dAdapter.toJson(writer, value.d());\n"
             + "      writer.name(\"e\");\n"
-            + "      moshi.<Map<String, Number>>adapter(Types.newParameterizedType(Map.class, String.class, Number.class)).toJson(writer, value.e());\n"
+            + "      eAdapter.toJson(writer, value.e());\n"
             + "      writer.name(\"f\");\n"
-            + "      moshi.<Set<String>>adapter(Types.newParameterizedType(Set.class, String.class)).toJson(writer, value.f());\n"
+            + "      fAdapter.toJson(writer, value.f());\n"
+            + "      writer.name(\"g\");\n"
+            + "      gAdapter.toJson(writer, value.g());\n"
             + "      writer.endObject();\n"
             + "    }\n"
             + "  }"
