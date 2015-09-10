@@ -2,6 +2,7 @@ package com.ryanharter.auto.value.moshi;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValueExtension;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -112,6 +113,20 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
     return values;
   }
 
+  ImmutableMap<Property, FieldSpec> createFields(List<Property> properties) {
+    ImmutableMap.Builder<Property, FieldSpec> fields = ImmutableMap.builder();
+
+    ClassName jsonAdapter = ClassName.get(JsonAdapter.class);
+    for (Property property : properties) {
+      TypeName type = property.type.isPrimitive() ? property.type.box() : property.type;
+      ParameterizedTypeName adp = ParameterizedTypeName.get(jsonAdapter, type);
+      fields.put(property,
+          FieldSpec.builder(adp, property.name + "Adapter", PRIVATE, FINAL).build());
+    }
+
+    return fields.build();
+  }
+
   MethodSpec generateConstructor(Map<String, TypeName> properties) {
     List<ParameterSpec> params = Lists.newArrayList();
     for (Map.Entry<String, TypeName> entry : properties.entrySet()) {
@@ -180,28 +195,40 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
     ClassName jsonAdapter = ClassName.get(JsonAdapter.class);
     TypeName typeAdapterClass = ParameterizedTypeName.get(jsonAdapter, autoValueClassName);
 
-    FieldSpec moshiField = FieldSpec.builder(Moshi.class, "moshi", PRIVATE, FINAL).build();
+    ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
+
+    MethodSpec.Builder constructor = MethodSpec.constructorBuilder()
+        .addModifiers(PUBLIC)
+        .addParameter(Moshi.class, "moshi");
+
+    for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
+      Property prop = entry.getKey();
+      FieldSpec field = entry.getValue();
+      if (entry.getKey().type instanceof ParameterizedTypeName) {
+        constructor.addStatement("this.$N = moshi.adapter($L)", field,
+            makeType((ParameterizedTypeName) prop.type));
+      } else {
+        TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
+        constructor.addStatement("this.$N = moshi.adapter($T.class)", field, type);
+      }
+    }
 
     String customTypeAdapterClass = String.format("AutoValue_%sJsonAdapter", autoValueClassName.simpleName());
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder(customTypeAdapterClass)
         .addModifiers(PUBLIC, STATIC, FINAL)
         .addModifiers(PUBLIC, STATIC, FINAL)
         .superclass(typeAdapterClass)
-        .addField(moshiField)
-        .addMethod(MethodSpec.constructorBuilder()
-                .addModifiers(PUBLIC)
-                .addParameter(Moshi.class, "moshi")
-                .addStatement("this.$N = moshi", moshiField)
-                .build()
-        )
-        .addMethod(createReadMethod(moshiField, className, autoValueClassName, properties))
-        .addMethod(createWriteMethod(moshiField, autoValueClassName, properties));
+        .addFields(adapters.values())
+        .addMethod(constructor.build())
+        .addMethod(createReadMethod(className, autoValueClassName, adapters))
+        .addMethod(createWriteMethod(autoValueClassName, adapters));
 
 
     return classBuilder.build();
   }
 
-  public MethodSpec createWriteMethod(FieldSpec moshiField, ClassName autoValueClassName, List<Property> properties) {
+  public MethodSpec createWriteMethod(ClassName autoValueClassName,
+                                      ImmutableMap<Property, FieldSpec> adapters) {
     ParameterSpec writer = ParameterSpec.builder(JsonWriter.class, "writer").build();
     ParameterSpec value = ParameterSpec.builder(autoValueClassName, "value").build();
     MethodSpec.Builder writeMethod = MethodSpec.methodBuilder("toJson")
@@ -212,26 +239,21 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
         .addException(IOException.class);
 
     writeMethod.addStatement("$N.beginObject()", writer);
-    for (Property prop : properties) {
+    for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
+      Property prop = entry.getKey();
+      FieldSpec field = entry.getValue();
+
       writeMethod.addStatement("$N.name($S)", writer, prop.serializedName());
-
-      TypeName typeName = prop.type.isPrimitive() ? prop.type.box() : prop.type;
-
-      if (typeName instanceof ParameterizedTypeName) {
-        writeMethod.addStatement("$N.<$T>adapter($L).toJson($N, $N.$N())", moshiField, typeName,
-            makeType((ParameterizedTypeName) typeName), writer, value, prop.name);
-      } else {
-        writeMethod.addStatement("$N.adapter($T.class).toJson($N, $N.$N())", moshiField, typeName,
-            writer, value, prop.name);
-      }
+      writeMethod.addStatement("$N.toJson($N, $N.$N())", field, writer, value, prop.name);
     }
     writeMethod.addStatement("$N.endObject()", writer);
 
     return writeMethod.build();
   }
 
-  public MethodSpec createReadMethod(FieldSpec moshiField, ClassName className,
-                                     ClassName autoValueClassName, List<Property> properties) {
+  public MethodSpec createReadMethod(ClassName className,
+                                     ClassName autoValueClassName,
+                                     ImmutableMap<Property, FieldSpec> adapters) {
     ParameterSpec reader = ParameterSpec.builder(JsonReader.class, "reader").build();
     MethodSpec.Builder readMethod = MethodSpec.methodBuilder("fromJson")
         .addAnnotation(Override.class)
@@ -243,8 +265,8 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
     readMethod.addStatement("$N.beginObject()", reader);
 
     // add the properties
-    Map<Property, FieldSpec> fields = new LinkedHashMap<Property, FieldSpec>(properties.size());
-    for (Property prop : properties) {
+    Map<Property, FieldSpec> fields = new LinkedHashMap<Property, FieldSpec>(adapters.size());
+    for (Property prop : adapters.keySet()) {
       FieldSpec field = FieldSpec.builder(prop.type, prop.name).build();
       fields.put(prop, field);
 
@@ -263,16 +285,7 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
       if (first) readMethod.beginControlFlow("if ($S.equals($N))", prop.serializedName(), name);
       else readMethod.nextControlFlow("else if ($S.equals($N))", prop.serializedName(), name);
 
-      TypeName typeName = field.type.isPrimitive() ? field.type.box() : field.type;
-
-      if (typeName instanceof ParameterizedTypeName) {
-        readMethod.addStatement("$N = $N.<$T>adapter($L).fromJson($N)", field, moshiField,
-            typeName, makeType((ParameterizedTypeName) typeName), reader);
-      } else {
-        readMethod.addStatement("$N = $N.adapter($T.class).fromJson($N)", field, moshiField,
-            typeName, reader);
-      }
-
+      readMethod.addStatement("$N = $N.fromJson($N)", field, adapters.get(prop), reader);
 
       first = false;
     }
