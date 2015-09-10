@@ -196,12 +196,10 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
     TypeName typeAdapterClass = ParameterizedTypeName.get(jsonAdapter, autoValueClassName);
 
     ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
-    FieldSpec moshiField = FieldSpec.builder(Moshi.class, "moshi", PRIVATE, FINAL).build();
 
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder()
         .addModifiers(PUBLIC)
-        .addParameter(Moshi.class, "moshi")
-        .addStatement("this.$N = moshi", moshiField);
+        .addParameter(Moshi.class, "moshi");
 
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
@@ -220,17 +218,16 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
         .addModifiers(PUBLIC, STATIC, FINAL)
         .addModifiers(PUBLIC, STATIC, FINAL)
         .superclass(typeAdapterClass)
-        .addField(moshiField)
         .addFields(adapters.values())
         .addMethod(constructor.build())
-        .addMethod(createReadMethod(moshiField, className, autoValueClassName, adapters))
-        .addMethod(createWriteMethod(moshiField, autoValueClassName, adapters));
+        .addMethod(createReadMethod(className, autoValueClassName, adapters))
+        .addMethod(createWriteMethod(autoValueClassName, adapters));
 
 
     return classBuilder.build();
   }
 
-  public MethodSpec createWriteMethod(FieldSpec moshiField, ClassName autoValueClassName,
+  public MethodSpec createWriteMethod(ClassName autoValueClassName,
                                       ImmutableMap<Property, FieldSpec> adapters) {
     ParameterSpec writer = ParameterSpec.builder(JsonWriter.class, "writer").build();
     ParameterSpec value = ParameterSpec.builder(autoValueClassName, "value").build();
@@ -254,7 +251,7 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
     return writeMethod.build();
   }
 
-  public MethodSpec createReadMethod(FieldSpec moshiField, ClassName className,
+  public MethodSpec createReadMethod(ClassName className,
                                      ClassName autoValueClassName,
                                      ImmutableMap<Property, FieldSpec> adapters) {
     ParameterSpec reader = ParameterSpec.builder(JsonReader.class, "reader").build();
