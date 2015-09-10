@@ -18,10 +18,12 @@ import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonReader;
 import com.squareup.moshi.JsonWriter;
 import com.squareup.moshi.Moshi;
+import com.squareup.moshi.Types;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -215,8 +217,37 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
     writeMethod.addStatement("$N.beginObject()", writer);
     for (Property prop : properties) {
       writeMethod.addStatement("$N.name($S)", writer, prop.serializedName());
-      writeMethod.addStatement("$N.adapter($T.class).toJson($N, $N.$N())", moshiField,
-          prop.type.isPrimitive() ? prop.type.box() : prop.type, writer, value, prop.name);
+
+      TypeName typeName = prop.type.isPrimitive() ? prop.type.box() : prop.type;
+
+      // Parametrized types cannot be written as moshi.adapter(Map<String, Number>.class), so we
+      // use Moshi's Types class to generate a proper Type
+      if (typeName instanceof ParameterizedTypeName) {
+        ParameterizedTypeName parameterizedTypeName = (ParameterizedTypeName) typeName;
+
+        // Handle the output setup and raw type, i.e. Map
+        List<Object> statementArgs = new ArrayList<>();
+        statementArgs.add(moshiField);
+        statementArgs.add(Types.class);
+        statementArgs.add(parameterizedTypeName.rawType);
+        StringBuilder template = new StringBuilder("$N.adapter($T.newParameterizedType($T.class");
+
+        // Handle the individual type arguments, i.e. String, Number
+        for (TypeName typeArg: parameterizedTypeName.typeArguments) {
+          statementArgs.add(typeArg);
+          template.append(", $T.class");
+        }
+
+        statementArgs.add(writer);
+        statementArgs.add(value);
+        statementArgs.add(prop.name);
+        template.append(")).toJson($N, $N.$N())");
+
+        writeMethod.addStatement(template.toString(), statementArgs.toArray());
+      } else {
+        writeMethod.addStatement("$N.adapter($T.class).toJson($N, $N.$N())", moshiField,
+            typeName, writer, value, prop.name);
+      }
     }
     writeMethod.addStatement("$N.endObject()", writer);
 
@@ -255,8 +286,37 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
       FieldSpec field = entry.getValue();
       if (first) readMethod.beginControlFlow("if ($S.equals($N))", prop.serializedName(), name);
       else readMethod.nextControlFlow("else if ($S.equals($N))", prop.serializedName(), name);
-      readMethod.addStatement("$N = $N.adapter($T.class).fromJson($N)", field, moshiField,
-          field.type.isPrimitive() ? field.type.box() : field.type, reader);
+
+      TypeName typeName = field.type.isPrimitive() ? field.type.box() : field.type;
+
+      // Parametrized types cannot be written as moshi.adapter(Map<String, Number>.class), so we
+      // use Moshi's Types class to generate a proper Type
+      if (typeName instanceof ParameterizedTypeName) {
+        ParameterizedTypeName parameterizedTypeName = (ParameterizedTypeName) typeName;
+
+        // Handle the output setup and raw type, i.e. Map
+        List<Object> statementArgs = new ArrayList<>();
+        statementArgs.add(field);
+        statementArgs.add(moshiField);
+        statementArgs.add(typeName);
+        statementArgs.add(Types.class);
+        statementArgs.add(parameterizedTypeName.rawType);
+        StringBuilder template = new StringBuilder("$N = $N.<$T>adapter($T.newParameterizedType($T.class");
+
+        // Handle the individual type arguments, i.e. String, Number
+        for (TypeName typeArg: parameterizedTypeName.typeArguments) {
+          statementArgs.add(typeArg);
+          template.append(", $T.class");
+        }
+
+        statementArgs.add(reader);
+        template.append(")).fromJson($N)");
+
+        readMethod.addStatement(template.toString(), statementArgs.toArray());
+      } else {
+        readMethod.addStatement("$N = $N.adapter($T.class).fromJson($N)", field, moshiField,
+            typeName, reader);
+      }
       first = false;
     }
     readMethod.endControlFlow(); // if/else if
