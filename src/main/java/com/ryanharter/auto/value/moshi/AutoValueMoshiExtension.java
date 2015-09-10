@@ -4,6 +4,7 @@ import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValueExtension;
 import com.google.common.collect.Lists;
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
@@ -19,11 +20,9 @@ import com.squareup.moshi.JsonReader;
 import com.squareup.moshi.JsonWriter;
 import com.squareup.moshi.Moshi;
 import com.squareup.moshi.Types;
-
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -31,7 +30,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.lang.model.element.ExecutableElement;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -102,7 +100,6 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
     } else {
       subclass.addModifiers(ABSTRACT);
     }
-
 
     return JavaFile.builder(context.packageName(), subclass.build()).build().toString();
   }
@@ -220,33 +217,12 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
 
       TypeName typeName = prop.type.isPrimitive() ? prop.type.box() : prop.type;
 
-      // Parametrized types cannot be written as moshi.adapter(Map<String, Number>.class), so we
-      // use Moshi's Types class to generate a proper Type
       if (typeName instanceof ParameterizedTypeName) {
-        ParameterizedTypeName parameterizedTypeName = (ParameterizedTypeName) typeName;
-
-        // Handle the output setup and raw type, i.e. Map
-        List<Object> statementArgs = new ArrayList<>();
-        statementArgs.add(moshiField);
-        statementArgs.add(Types.class);
-        statementArgs.add(parameterizedTypeName.rawType);
-        StringBuilder template = new StringBuilder("$N.adapter($T.newParameterizedType($T.class");
-
-        // Handle the individual type arguments, i.e. String, Number
-        for (TypeName typeArg: parameterizedTypeName.typeArguments) {
-          statementArgs.add(typeArg);
-          template.append(", $T.class");
-        }
-
-        statementArgs.add(writer);
-        statementArgs.add(value);
-        statementArgs.add(prop.name);
-        template.append(")).toJson($N, $N.$N())");
-
-        writeMethod.addStatement(template.toString(), statementArgs.toArray());
+        writeMethod.addStatement("$N.<$T>adapter($L).toJson($N, $N.$N())", moshiField, typeName,
+            makeType((ParameterizedTypeName) typeName), writer, value, prop.name);
       } else {
-        writeMethod.addStatement("$N.adapter($T.class).toJson($N, $N.$N())", moshiField,
-            typeName, writer, value, prop.name);
+        writeMethod.addStatement("$N.adapter($T.class).toJson($N, $N.$N())", moshiField, typeName,
+            writer, value, prop.name);
       }
     }
     writeMethod.addStatement("$N.endObject()", writer);
@@ -289,34 +265,15 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
 
       TypeName typeName = field.type.isPrimitive() ? field.type.box() : field.type;
 
-      // Parametrized types cannot be written as moshi.adapter(Map<String, Number>.class), so we
-      // use Moshi's Types class to generate a proper Type
       if (typeName instanceof ParameterizedTypeName) {
-        ParameterizedTypeName parameterizedTypeName = (ParameterizedTypeName) typeName;
-
-        // Handle the output setup and raw type, i.e. Map
-        List<Object> statementArgs = new ArrayList<>();
-        statementArgs.add(field);
-        statementArgs.add(moshiField);
-        statementArgs.add(typeName);
-        statementArgs.add(Types.class);
-        statementArgs.add(parameterizedTypeName.rawType);
-        StringBuilder template = new StringBuilder("$N = $N.<$T>adapter($T.newParameterizedType($T.class");
-
-        // Handle the individual type arguments, i.e. String, Number
-        for (TypeName typeArg: parameterizedTypeName.typeArguments) {
-          statementArgs.add(typeArg);
-          template.append(", $T.class");
-        }
-
-        statementArgs.add(reader);
-        template.append(")).fromJson($N)");
-
-        readMethod.addStatement(template.toString(), statementArgs.toArray());
+        readMethod.addStatement("$N = $N.<$T>adapter($L).fromJson($N)", field, moshiField,
+            typeName, makeType((ParameterizedTypeName) typeName), reader);
       } else {
         readMethod.addStatement("$N = $N.adapter($T.class).fromJson($N)", field, moshiField,
             typeName, reader);
       }
+
+
       first = false;
     }
     readMethod.endControlFlow(); // if/else if
@@ -337,5 +294,19 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
     readMethod.addStatement(format.toString(), fields.values().toArray());
 
     return readMethod.build();
+  }
+
+  private CodeBlock makeType(ParameterizedTypeName type) {
+    CodeBlock.Builder block = CodeBlock.builder();
+    block.add("$T.newParameterizedType($T.class", Types.class, type.rawType);
+    for (TypeName typeArg : type.typeArguments) {
+      if (typeArg instanceof ParameterizedTypeName) {
+        block.add(", $L", makeType((ParameterizedTypeName) typeArg));
+      } else {
+        block.add(", $T.class", typeArg);
+      }
+    }
+    block.add(")");
+    return block.build();
   }
 }
