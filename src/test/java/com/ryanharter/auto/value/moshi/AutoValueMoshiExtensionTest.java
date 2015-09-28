@@ -139,6 +139,8 @@ public class AutoValueMoshiExtensionTest {
             + "          f = fAdapter.fromJson(reader);\n"
             + "        } else if (\"g\".equals(_name)) {\n"
             + "          g = gAdapter.fromJson(reader);\n"
+            + "        } else {\n"
+            + "          reader.skipValue();\n"
             + "        }\n"
             + "      }\n"
             + "      reader.endObject();\n"

@@ -289,7 +289,11 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
 
       first = false;
     }
-    readMethod.endControlFlow(); // if/else if
+
+    readMethod.nextControlFlow("else");
+    readMethod.addStatement("$N.skipValue()", reader);
+
+    readMethod.endControlFlow(); // if, else if, else
     readMethod.endControlFlow(); // while
 
     readMethod.addStatement("$N.endObject()", reader);
