@@ -16,6 +16,7 @@ import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 public class AutoValueMoshiExtensionTest {
 
   private JavaFileObject serializedName;
+  private JavaFileObject nullable;
 
   @Before public void setup() {
     serializedName = JavaFileObjects.forSourceString("com.ryanharter.auto.value.moshi.SerializedName", ""
@@ -31,6 +32,19 @@ public class AutoValueMoshiExtensionTest {
         + "public @interface SerializedName {\n"
         + "  String value();\n"
         + "}");
+
+    nullable = JavaFileObjects.forSourceString("com.ryanharter.auto.value.moshi.Nullable", ""
+        + "package com.ryanharter.auto.value.moshi;\n"
+        + "import java.lang.annotation.Retention;\n"
+        + "import java.lang.annotation.Target;\n"
+        + "import static java.lang.annotation.ElementType.METHOD;\n"
+        + "import static java.lang.annotation.ElementType.PARAMETER;\n"
+        + "import static java.lang.annotation.ElementType.FIELD;\n"
+        + "import static java.lang.annotation.RetentionPolicy.SOURCE;\n"
+        + "@Retention(SOURCE)\n"
+        + "@Target({METHOD, PARAMETER, FIELD})\n"
+        + "public @interface Nullable {\n"
+        + "}");
   }
 
   @Test public void simple() {
@@ -38,6 +52,7 @@ public class AutoValueMoshiExtensionTest {
             + "package test;\n"
             + "import com.squareup.moshi.Json;\n"
             + "import com.ryanharter.auto.value.moshi.SerializedName;\n"
+            + "import com.ryanharter.auto.value.moshi.Nullable;\n"
             + "import com.google.auto.value.AutoValue;\n"
             + "import java.util.Map;\n"
             + "import java.util.Set;\n"
@@ -56,6 +71,8 @@ public class AutoValueMoshiExtensionTest {
             + "public abstract Set<String> f();\n"
             // Nested parameterized type
             + "public abstract Map<String, Set<String>> g();\n"
+            // Nullable type
+            + "@Nullable abstract String i();\n"
             + "}\n"
     );
 
@@ -78,8 +95,8 @@ public class AutoValueMoshiExtensionTest {
             + "import java.util.Set;\n"
             + "\n"
             + "final class AutoValue_Test extends $AutoValue_Test {\n"
-            + "  AutoValue_Test(String a, int[] b, int c, String d, Map<String, Number> e, Set<String> f, Map<String, Set<String>> g) {\n"
-            + "    super(a, b, c, d, e, f, g);\n"
+            + "  AutoValue_Test(String a, int[] b, int c, String d, Map<String, Number> e, Set<String> f, Map<String, Set<String>> g, String i) {\n"
+            + "    super(a, b, c, d, e, f, g, i);\n"
             + "  }\n"
             + "\n"
             + "  public static AutoValue_TestJsonAdapterFactory typeAdapterFactory() {\n"
@@ -103,6 +120,7 @@ public class AutoValueMoshiExtensionTest {
             + "    private final JsonAdapter<Map<String, Number>> eAdapter;\n"
             + "    private final JsonAdapter<Set<String>> fAdapter;\n"
             + "    private final JsonAdapter<Map<String, Set<String>>> gAdapter;\n"
+            + "    private final JsonAdapter<String> iAdapter;\n"
             + "  \n"
             + "    public AutoValue_TestJsonAdapter(Moshi moshi) {\n"
             + "      this.aAdapter = moshi.adapter(String.class);\n"
@@ -112,6 +130,7 @@ public class AutoValueMoshiExtensionTest {
             + "      this.eAdapter = moshi.adapter(Types.newParameterizedType(Map.class, String.class, Number.class));\n"
             + "      this.fAdapter = moshi.adapter(Types.newParameterizedType(Set.class, String.class));\n"
             + "      this.gAdapter = moshi.adapter(Types.newParameterizedType(Map.class, String.class, Types.newParameterizedType(Set.class, String.class)));\n"
+            + "      this.iAdapter = moshi.adapter(String.class);\n"
             + "    }\n"
             + "  \n"
             + "    @Override public Test fromJson(JsonReader reader) throws IOException {\n"
@@ -123,6 +142,7 @@ public class AutoValueMoshiExtensionTest {
             + "      Map<String, Number> e = null;\n"
             + "      Set<String> f = null;\n"
             + "      Map<String, Set<String>> g = null;"
+            + "      String i = null;\n"
             + "      while (reader.hasNext()) {\n"
             + "        String _name = reader.nextName();\n"
             + "        if (\"a\".equals(_name)) {\n"
@@ -139,12 +159,14 @@ public class AutoValueMoshiExtensionTest {
             + "          f = fAdapter.fromJson(reader);\n"
             + "        } else if (\"g\".equals(_name)) {\n"
             + "          g = gAdapter.fromJson(reader);\n"
+            + "        } else if (\"i\".equals(_name)) {\n"
+            + "          i = iAdapter.fromJson(reader);\n"
             + "        } else {\n"
             + "          reader.skipValue();\n"
             + "        }\n"
             + "      }\n"
             + "      reader.endObject();\n"
-            + "      return new AutoValue_Test(a, b, c, d, e, f, g);\n"
+            + "      return new AutoValue_Test(a, b, c, d, e, f, g, i);\n"
             + "    }\n"
             + "  \n"
             + "    @Override public void toJson(JsonWriter writer, Test value) throws IOException {\n"
@@ -163,6 +185,10 @@ public class AutoValueMoshiExtensionTest {
             + "      fAdapter.toJson(writer, value.f());\n"
             + "      writer.name(\"g\");\n"
             + "      gAdapter.toJson(writer, value.g());\n"
+            + "      if (value.i() != null) {\n"
+            + "        writer.name(\"i\");\n"
+            + "        iAdapter.toJson(writer, value.i());\n"
+            + "      }\n"
             + "      writer.endObject();\n"
             + "    }\n"
             + "  }"
@@ -170,7 +196,7 @@ public class AutoValueMoshiExtensionTest {
     );
 
     assertAbout(javaSources())
-        .that(Arrays.asList(serializedName, source))
+        .that(Arrays.asList(serializedName, nullable, source))
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
         .and()
