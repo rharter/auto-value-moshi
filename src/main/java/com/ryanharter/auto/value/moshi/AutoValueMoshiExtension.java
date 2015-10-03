@@ -288,6 +288,8 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
         .addParameter(reader)
         .addException(IOException.class);
 
+    ClassName token = ClassName.get(JsonReader.Token.NULL.getClass());
+
     readMethod.addStatement("$N.beginObject()", reader);
 
     // add the properties
@@ -304,16 +306,15 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
     FieldSpec name = FieldSpec.builder(String.class, "_name").build();
     readMethod.addStatement("$T $N = $N.nextName()", name.type, name, reader);
 
-    boolean first = true;
+    readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", reader, token);
+    readMethod.addStatement("$N.skipValue()", reader);
+
     for (Map.Entry<Property, FieldSpec> entry : fields.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
-      if (first) readMethod.beginControlFlow("if ($S.equals($N))", prop.serializedName(), name);
-      else readMethod.nextControlFlow("else if ($S.equals($N))", prop.serializedName(), name);
 
+      readMethod.nextControlFlow("else if ($S.equals($N))", prop.serializedName(), name);
       readMethod.addStatement("$N = $N.fromJson($N)", field, adapters.get(prop), reader);
-
-      first = false;
     }
 
     readMethod.nextControlFlow("else");
