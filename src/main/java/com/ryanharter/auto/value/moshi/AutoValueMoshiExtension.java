@@ -48,6 +48,7 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
     String name;
     ExecutableElement element;
     TypeName type;
+    ImmutableSet<String> annotations;
 
     public Property() {}
 
@@ -56,6 +57,7 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
       this.element = element;
 
       type = TypeName.get(element.getReturnType());
+      annotations = buildAnnotations(element);
     }
 
     public String serializedName() {
@@ -68,10 +70,10 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
     }
 
     public Boolean nullable() {
-      return getAnnotations().contains("Nullable");
+      return annotations.contains("Nullable");
     }
 
-    private ImmutableSet<String> getAnnotations() {
+    private ImmutableSet<String> buildAnnotations(ExecutableElement element) {
       ImmutableSet.Builder<String> builder = ImmutableSet.builder();
 
       List<? extends AnnotationMirror> annotations = element.getAnnotationMirrors();
