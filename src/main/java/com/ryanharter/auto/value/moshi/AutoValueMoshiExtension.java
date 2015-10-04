@@ -3,6 +3,7 @@ package com.ryanharter.auto.value.moshi;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.extension.AutoValueExtension;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -31,6 +32,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -46,6 +48,7 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
     String name;
     ExecutableElement element;
     TypeName type;
+    ImmutableSet<String> annotations;
 
     public Property() {}
 
@@ -54,6 +57,7 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
       this.element = element;
 
       type = TypeName.get(element.getReturnType());
+      annotations = buildAnnotations(element);
     }
 
     public String serializedName() {
@@ -63,6 +67,21 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
       } else {
         return name;
       }
+    }
+
+    public Boolean nullable() {
+      return annotations.contains("Nullable");
+    }
+
+    private ImmutableSet<String> buildAnnotations(ExecutableElement element) {
+      ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+
+      List<? extends AnnotationMirror> annotations = element.getAnnotationMirrors();
+      for (AnnotationMirror annotation : annotations) {
+        builder.add(annotation.getAnnotationType().asElement().getSimpleName().toString());
+      }
+
+      return builder.build();
     }
   }
 
@@ -243,8 +262,15 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
 
-      writeMethod.addStatement("$N.name($S)", writer, prop.serializedName());
-      writeMethod.addStatement("$N.toJson($N, $N.$N())", field, writer, value, prop.name);
+      if (prop.nullable()) {
+        writeMethod.beginControlFlow("if ($N.$N() != null)", value, prop.name);
+        writeMethod.addStatement("$N.name($S)", writer, prop.serializedName());
+        writeMethod.addStatement("$N.toJson($N, $N.$N())", field, writer, value, prop.name);
+        writeMethod.endControlFlow();
+      } else {
+        writeMethod.addStatement("$N.name($S)", writer, prop.serializedName());
+        writeMethod.addStatement("$N.toJson($N, $N.$N())", field, writer, value, prop.name);
+      }
     }
     writeMethod.addStatement("$N.endObject()", writer);
 
