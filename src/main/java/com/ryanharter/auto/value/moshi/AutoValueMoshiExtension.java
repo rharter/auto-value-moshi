@@ -306,21 +306,29 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
     FieldSpec name = FieldSpec.builder(String.class, "_name").build();
     readMethod.addStatement("$T $N = $N.nextName()", name.type, name, reader);
 
+    // check if JSON field value is NULL
     readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", reader, token);
     readMethod.addStatement("$N.skipValue()", reader);
+    readMethod.addStatement("continue");
+    readMethod.endControlFlow();
 
+    readMethod.beginControlFlow("switch ($N)", name);
     for (Map.Entry<Property, FieldSpec> entry : fields.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
 
-      readMethod.nextControlFlow("else if ($S.equals($N))", prop.serializedName(), name);
+      readMethod.beginControlFlow("case $S:", prop.serializedName());
       readMethod.addStatement("$N = $N.fromJson($N)", field, adapters.get(prop), reader);
+      readMethod.addStatement("break");
+      readMethod.endControlFlow();
     }
 
-    readMethod.nextControlFlow("else");
+    // skip value if field is not serialized...
+    readMethod.beginControlFlow("default:");
     readMethod.addStatement("$N.skipValue()", reader);
+    readMethod.endControlFlow();
 
-    readMethod.endControlFlow(); // if, else if, else
+    readMethod.endControlFlow(); // switch
     readMethod.endControlFlow(); // while
 
     readMethod.addStatement("$N.endObject()", reader);
