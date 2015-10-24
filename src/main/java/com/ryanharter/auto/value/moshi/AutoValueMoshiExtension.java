@@ -42,7 +42,7 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 
 @AutoService(AutoValueExtension.class)
-public class AutoValueMoshiExtension implements AutoValueExtension {
+public class AutoValueMoshiExtension extends AutoValueExtension {
 
   public static class Property {
     String name;
@@ -88,11 +88,6 @@ public class AutoValueMoshiExtension implements AutoValueExtension {
   @Override
   public boolean applicable(Context context) {
     return true;
-  }
-
-  @Override
-  public boolean mustBeAtEnd(Context context) {
-    return false;
   }
 
   @Override
