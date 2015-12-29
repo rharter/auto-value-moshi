@@ -6,14 +6,14 @@ An extension for Google's [AutoValue](https://github.com/google/auto) that creat
 
 ## Usage
 
-Simply include auto-value-moshi in your project and add the generated JsonAdapterFactory to your Moshi instance.  You can also annotate your properties using `@SerializedName` to define an alternate name for de/serialization.
+Simply include auto-value-moshi in your project and add the generated JsonAdapterFactory to your Moshi instance.  You can also annotate your properties using `@Json` to define an alternate name for de/serialization.
 
 ```java
 @AutoValue public abstract class Foo {
   abstract String bar();
   @Json(name="Baz") abstract String baz();
 
-  public static TypeAdapterFactory typeAdapterFactory() {
+  public static JsonAdapter.Factory typeAdapterFactory() {
     return AutoValue_Foo.typeAdapterFactory();
   }
 }
@@ -37,7 +37,7 @@ This wouldn't be quite complete without some added features.
 Add a Gradle dependency:
 
 ```groovy
-apt 'com.ryanharter.auto.value:auto-value-moshi:0.1-SNAPSHOT'
+apt 'com.ryanharter.auto.value:auto-value-moshi:0.2-SNAPSHOT'
 ```
 
 (Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)
