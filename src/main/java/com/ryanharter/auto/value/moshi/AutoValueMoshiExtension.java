@@ -5,6 +5,15 @@ import com.google.auto.value.extension.AutoValueExtension;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.ryanharter.auto.value.moshi.annotation.DefaultBoolean;
+import com.ryanharter.auto.value.moshi.annotation.DefaultByte;
+import com.ryanharter.auto.value.moshi.annotation.DefaultChar;
+import com.ryanharter.auto.value.moshi.annotation.DefaultDouble;
+import com.ryanharter.auto.value.moshi.annotation.DefaultFloat;
+import com.ryanharter.auto.value.moshi.annotation.DefaultInt;
+import com.ryanharter.auto.value.moshi.annotation.DefaultLong;
+import com.ryanharter.auto.value.moshi.annotation.DefaultShort;
+import com.ryanharter.auto.value.moshi.annotation.DefaultString;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -71,6 +80,51 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
 
     public Boolean nullable() {
       return annotations.contains("Nullable");
+    }
+
+    public Boolean defaultBoolean() {
+      DefaultBoolean annotation = element.getAnnotation(DefaultBoolean.class);
+      return annotation == null ? null : annotation.value();
+    }
+
+    public Byte defaultByte() {
+      DefaultByte annotation = element.getAnnotation(DefaultByte.class);
+      return annotation == null ? null : annotation.value();
+    }
+
+    public Character defaultChar() {
+      DefaultChar annotation = element.getAnnotation(DefaultChar.class);
+      return annotation == null ? null : annotation.value();
+    }
+
+    public Double defaultDouble() {
+      DefaultDouble annotation = element.getAnnotation(DefaultDouble.class);
+      return annotation == null ? null : annotation.value();
+    }
+
+    public Float defaultFloat() {
+      DefaultFloat annotation = element.getAnnotation(DefaultFloat.class);
+      return annotation == null ? null : annotation.value();
+    }
+
+    public Integer defaultInt() {
+      DefaultInt annotation = element.getAnnotation(DefaultInt.class);
+      return annotation == null ? null : annotation.value();
+    }
+
+    public Long defaultLong() {
+      DefaultLong annotation = element.getAnnotation(DefaultLong.class);
+      return annotation == null ? null : annotation.value();
+    }
+
+    public Short defaultShort() {
+      DefaultShort annotation = element.getAnnotation(DefaultShort.class);
+      return annotation == null ? null : annotation.value();
+    }
+
+    public String defaultString() {
+      DefaultString annotation = element.getAnnotation(DefaultString.class);
+      return annotation == null ? null : annotation.value();
     }
 
     private ImmutableSet<String> buildAnnotations(ExecutableElement element) {
@@ -293,7 +347,28 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       FieldSpec field = FieldSpec.builder(prop.type, prop.name).build();
       fields.put(prop, field);
 
-      readMethod.addStatement("$T $N = null", field.type.isPrimitive() ? field.type.box() : field.type, field);
+      TypeName boxedType = field.type.isPrimitive() ? field.type.box() : field.type;
+      if (TypeName.get(Boolean.class).equals(boxedType)) {
+        readMethod.addStatement("$T $N = $L", boxedType, field, prop.defaultBoolean());
+      } else if (TypeName.get(Byte.class).equals(boxedType)) {
+        readMethod.addStatement("$T $N = $L", boxedType, field, prop.defaultByte());
+      } else if (TypeName.get(Character.class).equals(boxedType)) {
+        readMethod.addStatement("$T $N = $L", boxedType, field, prop.defaultChar());
+      } else if (TypeName.get(Double.class).equals(boxedType)) {
+        readMethod.addStatement("$T $N = $L", boxedType, field, prop.defaultDouble());
+      } else if (TypeName.get(Float.class).equals(boxedType)) {
+        readMethod.addStatement("$T $N = $L", boxedType, field, prop.defaultFloat());
+      } else if (TypeName.get(Integer.class).equals(boxedType)) {
+        readMethod.addStatement("$T $N = $L", boxedType, field, prop.defaultInt());
+      } else if (TypeName.get(Long.class).equals(boxedType)) {
+        readMethod.addStatement("$T $N = $L", boxedType, field, prop.defaultLong());
+      } else if (TypeName.get(Short.class).equals(boxedType)) {
+        readMethod.addStatement("$T $N = $L", boxedType, field, prop.defaultShort());
+      } else if (TypeName.get(String.class).equals(prop.type)) {
+        readMethod.addStatement("$T $N = $S", boxedType, field, prop.defaultString());
+      } else {
+        readMethod.addStatement("$T $N = null", boxedType, field);
+      }
     }
 
     readMethod.beginControlFlow("while ($N.hasNext())", reader);
