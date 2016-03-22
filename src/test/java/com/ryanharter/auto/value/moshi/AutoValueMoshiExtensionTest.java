@@ -11,6 +11,7 @@ import java.util.Arrays;
 import javax.tools.JavaFileObject;
 
 import static com.google.common.truth.Truth.assertAbout;
+import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
 public class AutoValueMoshiExtensionTest {
@@ -219,6 +220,102 @@ public class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(serializedName, nullable, source))
+        .processedWith(new AutoValueProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected);
+  }
+
+  @Test public void propertyMethodReferencedWithPrefix() {
+    JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "@AutoValue public abstract class Test {\n"
+        + "  public abstract String getName();\n"
+        + "  public abstract boolean isAwesome();\n"
+        + "}"
+    );
+    JavaFileObject expected = JavaFileObjects.forSourceString("test/AutoValue_Test", ""
+        + "package test;\n"
+        + "\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.JsonReader;\n"
+        + "import com.squareup.moshi.JsonWriter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import java.io.IOException;\n"
+        + "import java.lang.Boolean;\n"
+        + "import java.lang.Override;\n"
+        + "import java.lang.String;\n"
+        + "import java.lang.annotation.Annotation;\n"
+        + "import java.lang.reflect.Type;\n"
+        + "import java.util.Set;\n"
+        + "\n"
+        + "final class AutoValue_Test extends $AutoValue_Test {\n"
+        + "  AutoValue_Test(String name, boolean awesome) {\n"
+        + "    super(name, awesome);\n"
+        + "  }\n"
+        + "\n"
+        + "  public static AutoValue_TestJsonAdapterFactory typeAdapterFactory() {\n"
+        + "    return new AutoValue_TestJsonAdapterFactory();\n"
+        + "  }\n"
+        + "\n"
+        + "  public static final class AutoValue_TestJsonAdapterFactory implements JsonAdapter.Factory {\n"
+        + "    @Override\n"
+        + "    public JsonAdapter<Test> create(Type type, Set<? extends Annotation> annotations, Moshi moshi) {\n"
+        + "      if (!type.equals(Test.class)) return null;\n"
+        + "      return (JsonAdapter<Test>) new AutoValue_TestJsonAdapter(moshi);\n"
+        + "    }\n"
+        + "  }\n"
+        + "\n"
+        + "  public static final class AutoValue_TestJsonAdapter extends JsonAdapter<Test> {\n"
+        + "    private final JsonAdapter<String> nameAdapter;\n"
+        + "    private final JsonAdapter<Boolean> awesomeAdapter;\n"
+        + "    public AutoValue_TestJsonAdapter(Moshi moshi) {\n"
+        + "      this.nameAdapter = moshi.adapter(String.class);\n"
+        + "      this.awesomeAdapter = moshi.adapter(Boolean.class);\n"
+        + "    }\n"
+        + "    @Override\n"
+        + "    public Test fromJson(JsonReader reader) throws IOException {\n"
+        + "      reader.beginObject();\n"
+        + "      String name = null;\n"
+        + "      Boolean awesome = null;\n"
+        + "      while (reader.hasNext()) {\n"
+        + "        String _name = reader.nextName();\n"
+        + "        if (reader.peek() == JsonReader.Token.NULL) {\n"
+        + "          reader.skipValue();\n"
+        + "          continue;\n"
+        + "        }\n"
+        + "        switch (_name) {\n"
+        + "          case \"name\": {\n"
+        + "            name = nameAdapter.fromJson(reader);\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"awesome\": {\n"
+        + "            awesome = awesomeAdapter.fromJson(reader);\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          default: {\n"
+        + "            reader.skipValue();\n"
+        + "          }\n"
+        + "        }\n"
+        + "      }\n"
+        + "      reader.endObject();\n"
+        + "      return new AutoValue_Test(name, awesome);\n"
+        + "    }\n"
+        + "    @Override\n"
+        + "    public void toJson(JsonWriter writer, Test value) throws IOException {\n"
+        + "      writer.beginObject();\n"
+        + "      writer.name(\"name\");\n"
+        + "      nameAdapter.toJson(writer, value.getName());\n"
+        + "      writer.name(\"awesome\");\n"
+        + "      awesomeAdapter.toJson(writer, value.isAwesome());\n"
+        + "      writer.endObject();\n"
+        + "    }\n"
+        + "  }\n"
+        + "}");
+
+    assertAbout(javaSources())
+        .that(Arrays.asList(source, nullable))
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
         .and()

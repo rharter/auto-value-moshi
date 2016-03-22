@@ -45,15 +45,15 @@ import static javax.lang.model.element.Modifier.STATIC;
 public class AutoValueMoshiExtension extends AutoValueExtension {
 
   public static class Property {
-    String name;
-    ExecutableElement element;
-    TypeName type;
-    ImmutableSet<String> annotations;
-
-    public Property() {}
+    final String methodName;
+    final String humanName;
+    final ExecutableElement element;
+    final TypeName type;
+    final ImmutableSet<String> annotations;
 
     public Property(String name, ExecutableElement element) {
-      this.name = name;
+      this.methodName = element.getSimpleName().toString();
+      this.humanName = name;
       this.element = element;
 
       type = TypeName.get(element.getReturnType());
@@ -65,7 +65,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       if (json != null) {
         return json.name();
       } else {
-        return name;
+        return humanName;
       }
     }
 
@@ -135,7 +135,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       TypeName type = property.type.isPrimitive() ? property.type.box() : property.type;
       ParameterizedTypeName adp = ParameterizedTypeName.get(jsonAdapter, type);
       fields.put(property,
-          FieldSpec.builder(adp, property.name + "Adapter", PRIVATE, FINAL).build());
+          FieldSpec.builder(adp, property.humanName + "Adapter", PRIVATE, FINAL).build());
     }
 
     return fields.build();
@@ -258,13 +258,13 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       FieldSpec field = entry.getValue();
 
       if (prop.nullable()) {
-        writeMethod.beginControlFlow("if ($N.$N() != null)", value, prop.name);
+        writeMethod.beginControlFlow("if ($N.$N() != null)", value, prop.methodName);
         writeMethod.addStatement("$N.name($S)", writer, prop.serializedName());
-        writeMethod.addStatement("$N.toJson($N, $N.$N())", field, writer, value, prop.name);
+        writeMethod.addStatement("$N.toJson($N, $N.$N())", field, writer, value, prop.methodName);
         writeMethod.endControlFlow();
       } else {
         writeMethod.addStatement("$N.name($S)", writer, prop.serializedName());
-        writeMethod.addStatement("$N.toJson($N, $N.$N())", field, writer, value, prop.name);
+        writeMethod.addStatement("$N.toJson($N, $N.$N())", field, writer, value, prop.methodName);
       }
     }
     writeMethod.addStatement("$N.endObject()", writer);
@@ -290,7 +290,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     // add the properties
     Map<Property, FieldSpec> fields = new LinkedHashMap<Property, FieldSpec>(adapters.size());
     for (Property prop : adapters.keySet()) {
-      FieldSpec field = FieldSpec.builder(prop.type, prop.name).build();
+      FieldSpec field = FieldSpec.builder(prop.type, prop.humanName).build();
       fields.put(prop, field);
 
       readMethod.addStatement("$T $N = null", field.type.isPrimitive() ? field.type.box() : field.type, field);
