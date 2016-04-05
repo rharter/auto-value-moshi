@@ -18,16 +18,19 @@ import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
 import com.squareup.moshi.Json;
 import com.squareup.moshi.JsonAdapter;
+import com.squareup.moshi.JsonQualifier;
 import com.squareup.moshi.JsonReader;
 import com.squareup.moshi.JsonWriter;
 import com.squareup.moshi.Moshi;
 import com.squareup.moshi.Types;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -211,19 +214,21 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
 
     ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
 
+    ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder()
         .addModifiers(PUBLIC)
-        .addParameter(Moshi.class, "moshi");
+        .addParameter(moshi);
 
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
       if (entry.getKey().type instanceof ParameterizedTypeName) {
-        constructor.addStatement("this.$N = moshi.adapter($L)", field,
-            makeType((ParameterizedTypeName) prop.type));
+        constructor.addStatement("this.$N = adapter($N, $L, \"$L\")", field, moshi,
+            makeType((ParameterizedTypeName) prop.type), prop.methodName);
       } else {
         TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
-        constructor.addStatement("this.$N = moshi.adapter($T.class)", field, type);
+        constructor.addStatement("this.$N = adapter($N, $T.class, \"$L\")", field, moshi, type,
+            prop.methodName);
       }
     }
 
@@ -235,10 +240,36 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         .addFields(adapters.values())
         .addMethod(constructor.build())
         .addMethod(createReadMethod(className, autoValueClassName, adapters))
-        .addMethod(createWriteMethod(autoValueClassName, adapters));
-
+        .addMethod(createWriteMethod(autoValueClassName, adapters))
+        .addMethod(createAdapterMethod(autoValueClassName));
 
     return classBuilder.build();
+  }
+
+  private MethodSpec createAdapterMethod(ClassName autoValueClassName) {
+    ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
+    ParameterSpec type = ParameterSpec.builder(Type.class, "type").build();
+    ParameterSpec methodName = ParameterSpec.builder(String.class, "methodName").build();
+    return MethodSpec.methodBuilder("adapter")
+        .addModifiers(PRIVATE)
+        .addParameters(ImmutableSet.of(moshi, type, methodName))
+        .returns(ClassName.get(JsonAdapter.class))
+        .addCode(CodeBlock.builder()
+            .beginControlFlow("try")
+            .addStatement("$T method = $T.class.getDeclaredMethod($N)", Method.class, autoValueClassName, methodName)
+            .addStatement("$T<$T> annotations = new $T<$T>()", Set.class, Annotation.class, LinkedHashSet.class, Annotation.class)
+            .beginControlFlow("for ($T annotation : method.getAnnotations())", Annotation.class)
+            .beginControlFlow("if (annotation.annotationType().isAnnotationPresent($T.class))", JsonQualifier.class)
+            .addStatement("annotations.add(annotation)")
+            .endControlFlow()
+            .endControlFlow()
+            .addStatement("return $N.adapter($N, annotations)", moshi, type)
+            .nextControlFlow("catch ($T e)", NoSuchMethodException.class)
+            .addStatement("return $N.adapter($N)", moshi, type)
+            .endControlFlow()
+            .build()
+        )
+        .build();
   }
 
   public MethodSpec createWriteMethod(ClassName autoValueClassName,
