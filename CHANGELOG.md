@@ -1,5 +1,12 @@
 # Change Log
 
+## Version 0.2.2 (2016-04-05)
+
+#### Supports: AutoValue 1.2-rc1
+
+* Adds support for custom type serializiation with [@JsonQualifier](https://github.com/square/moshi#alternate-type-adapters-with-jsonqualifier)
+* Fixes issue causing method prefixes (`get`, `is`) to be ignored.
+
 ## Version 0.2.1 (2016-03-22)
 
 Fixes snapshot issues with 0.2.0 release. Only guaranteed to support AutoValue 1.2-rc1
