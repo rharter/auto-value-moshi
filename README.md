@@ -13,13 +13,25 @@ Simply include auto-value-moshi in your project and add the generated JsonAdapte
   abstract String bar();
   @Json(name="Baz") abstract String baz();
 
-  public static JsonAdapter.Factory typeAdapterFactory() {
-    return AutoValue_Foo.typeAdapterFactory();
+  public static JsonAdapter<Foo> jsonAdapter() {
+    return AutoValue_Foo.jsonAdapter();
+  }
+}
+
+public class AutoValueJsonAdapterFactory extends JsonAdapter.Factory {
+  JsonAdapter<?> create(Type type, Set<? extends Annotation> annotations, Moshi moshi) {
+    Class<? super T> rawType = type.getRawType();
+    if (rawType.equals(Foo.class)) {
+      return (JsonAdapter<T>) new Foo.typeAdapter(moshi);
+    } else if (rawType.equals(Bar.class)) {
+      return (JsonAdapter<T>) new Bar.typeAdapter(moshi);
+    }
+    return null;
   }
 }
 
 final Moshi moshi = new Moshi.Builder()
-    .add(Foo.typeAdapterFactory())
+    .add(new AutoValueJsonAdapterFactory())
     .build();
 ```
 
@@ -30,7 +42,6 @@ Now build your project and de/serialize your Foo.
 This wouldn't be quite complete without some added features.
 
 * Automatic registration
-* Default value support
 
 ## Download
 

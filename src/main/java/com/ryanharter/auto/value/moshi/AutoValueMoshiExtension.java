@@ -26,6 +26,7 @@ import com.squareup.moshi.Types;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -35,8 +36,14 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.processing.Messager;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.ElementFilter;
+import javax.tools.Diagnostic;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -90,7 +97,46 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
 
   @Override
   public boolean applicable(Context context) {
-    return true;
+    // check that the class contains a public static method returning a JsonAdapter
+    TypeElement type = context.autoValueClass();
+    ParameterizedTypeName jsonAdapterType = ParameterizedTypeName.get(
+        ClassName.get(JsonAdapter.class), TypeName.get(type.asType()));
+    TypeName returnedJsonAdapter = null;
+    for (ExecutableElement method : ElementFilter.methodsIn(type.getEnclosedElements())) {
+      if (method.getModifiers().contains(Modifier.STATIC)
+          && method.getModifiers().contains(Modifier.PUBLIC)) {
+        TypeMirror rType = method.getReturnType();
+        TypeName returnType = TypeName.get(rType);
+        if (returnType.equals(jsonAdapterType)) {
+          return true;
+        }
+
+        if (returnType.equals(jsonAdapterType.rawType)
+            || (returnType instanceof ParameterizedTypeName
+            && ((ParameterizedTypeName) returnType).rawType.equals(jsonAdapterType.rawType))) {
+          returnedJsonAdapter = returnType;
+        }
+      }
+    }
+
+    if (returnedJsonAdapter == null) {
+      return false;
+    }
+
+    // emit a warning if the user added a method returning a JsonAdapter, but not of the right type
+    Messager messager = context.processingEnvironment().getMessager();
+    if (returnedJsonAdapter instanceof ParameterizedTypeName) {
+      ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnedJsonAdapter;
+      TypeName argument = paramReturnType.typeArguments.get(0);
+      messager.printMessage(Diagnostic.Kind.WARNING,
+          String.format("Found public static method returning JsonAdapter<%s> on %s class. "
+              + "Skipping MoshiJsonAdapter generation.", argument, type));
+    } else {
+      messager.printMessage(Diagnostic.Kind.WARNING, "Found public static method returning "
+          + "JsonAdapter with no type arguments, skipping MoshiJsonAdapter generation.");
+    }
+
+    return false;
   }
 
   @Override
@@ -103,15 +149,13 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     ClassName autoValueClass = ClassName.bestGuess(context.autoValueClass().getQualifiedName().toString());
 
     TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, properties);
-    TypeSpec typeAdapterFactory = createJsonAdapterFactory(autoValueClass, typeAdapter);
-    MethodSpec typeAdapterFactoryMethod = createJsonAdapterFactoryMethod(typeAdapterFactory);
+    MethodSpec jsonAdapterMethod = createJsonAdapterMethod(autoValueClass, typeAdapter);
 
     TypeSpec.Builder subclass = TypeSpec.classBuilder(className)
         .superclass(TypeVariableName.get(classToExtend))
-        .addType(typeAdapterFactory)
         .addType(typeAdapter)
         .addMethod(generateConstructor(types))
-        .addMethod(typeAdapterFactoryMethod);
+        .addMethod(jsonAdapterMethod);
 
     if (isFinal) {
       subclass.addModifiers(FINAL);
@@ -176,35 +220,13 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     return types;
   }
 
-  public MethodSpec createJsonAdapterFactoryMethod(TypeSpec typeAdapterFactory) {
-    return MethodSpec.methodBuilder("typeAdapterFactory")
-        .addModifiers(PUBLIC, STATIC)
-        .returns(ClassName.bestGuess(typeAdapterFactory.name))
-        .addStatement("return new $N()", typeAdapterFactory)
-        .build();
-  }
-
-  public TypeSpec createJsonAdapterFactory(ClassName autoValueClassName, TypeSpec typeAdapter) {
-    String customJsonAdapterFactory = String.format("AutoValue_%sJsonAdapterFactory", autoValueClassName.simpleName());
-
-    TypeName jsonAdapterType = ParameterizedTypeName.get(ClassName.get(JsonAdapter.class), autoValueClassName);
-    TypeName setOfAnnotations = ParameterizedTypeName.get(ClassName.get(Set.class), WildcardTypeName.subtypeOf(Annotation.class));
-    ParameterSpec type = ParameterSpec.builder(Type.class, "type").build();
-    ParameterSpec annotations = ParameterSpec.builder(setOfAnnotations, "annotations").build();
+  public MethodSpec createJsonAdapterMethod(TypeName autoValueClass, TypeSpec jsonAdapter) {
     ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
-    MethodSpec createMethod = MethodSpec.methodBuilder("create")
-        .addModifiers(PUBLIC)
-        .addAnnotation(Override.class)
-        .returns(jsonAdapterType)
-        .addParameters(Arrays.asList(type, annotations, moshi))
-        .addStatement("if (!$N.equals($T.class)) return null", type, autoValueClassName)
-        .addStatement("return ($T) new $N($N)", jsonAdapterType, typeAdapter, moshi)
-        .build();
-
-    return TypeSpec.classBuilder(customJsonAdapterFactory)
-        .addModifiers(PUBLIC, STATIC, FINAL)
-        .addSuperinterface(JsonAdapter.Factory.class)
-        .addMethod(createMethod)
+    return MethodSpec.methodBuilder("jsonAdapter")
+        .addModifiers(PUBLIC, STATIC)
+        .addParameter(moshi)
+        .returns(ParameterizedTypeName.get(ClassName.get(JsonAdapter.class), autoValueClass))
+        .addStatement("return new $N($N)", jsonAdapter, moshi)
         .build();
   }
 
@@ -238,8 +260,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       }
     }
 
-    String customTypeAdapterClass = String.format("AutoValue_%sJsonAdapter", autoValueClassName.simpleName());
-    TypeSpec.Builder classBuilder = TypeSpec.classBuilder(customTypeAdapterClass)
+    TypeSpec.Builder classBuilder = TypeSpec.classBuilder("MoshiJsonAdapter")
         .addModifiers(PUBLIC, STATIC, FINAL)
         .addModifiers(PUBLIC, STATIC, FINAL)
         .superclass(typeAdapterClass)
