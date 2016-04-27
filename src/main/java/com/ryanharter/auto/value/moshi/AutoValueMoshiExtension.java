@@ -281,7 +281,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
   }
 
   public MethodSpec createWriteMethod(ClassName autoValueClassName,
-                                      ImmutableMap<Property, FieldSpec> adapters) {
+      ImmutableMap<Property, FieldSpec> adapters) {
     ParameterSpec writer = ParameterSpec.builder(JsonWriter.class, "writer").build();
     ParameterSpec value = ParameterSpec.builder(autoValueClassName, "value").build();
     MethodSpec.Builder writeMethod = MethodSpec.methodBuilder("toJson")
@@ -312,8 +312,8 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
   }
 
   public MethodSpec createReadMethod(ClassName className,
-                                     ClassName autoValueClassName,
-                                     ImmutableMap<Property, FieldSpec> adapters) {
+      ClassName autoValueClassName,
+      ImmutableMap<Property, FieldSpec> adapters) {
     ParameterSpec reader = ParameterSpec.builder(JsonReader.class, "reader").build();
     MethodSpec.Builder readMethod = MethodSpec.methodBuilder("fromJson")
         .addAnnotation(Override.class)
@@ -332,7 +332,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       FieldSpec field = FieldSpec.builder(prop.type, prop.humanName).build();
       fields.put(prop, field);
 
-      readMethod.addStatement("$T $N = null", field.type.isPrimitive() ? field.type.box() : field.type, field);
+      readMethod.addStatement("$T $N = $L", field.type, field, defaultValue(field.type));
     }
 
     readMethod.beginControlFlow("while ($N.hasNext())", reader);
@@ -382,6 +382,28 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     return readMethod.build();
   }
 
+  private String defaultValue(TypeName type) {
+    if (type == TypeName.BOOLEAN) {
+      return "false";
+    } else if (type == TypeName.BYTE) {
+      return "(byte) 0";
+    } else if (type == TypeName.SHORT) {
+      return "0";
+    } else if (type == TypeName.INT) {
+      return "0";
+    } else if (type == TypeName.LONG) {
+      return "0L";
+    } else if (type == TypeName.CHAR) {
+      return "'\0'";
+    } else if (type == TypeName.FLOAT) {
+      return "0.0f";
+    } else if (type == TypeName.DOUBLE) {
+      return "0.0d";
+    } else {
+      return "null";
+    }
+  }
+
   private CodeBlock makeType(TypeName type) {
     CodeBlock.Builder block = CodeBlock.builder();
     if (type instanceof ParameterizedTypeName) {
@@ -396,7 +418,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       }
       block.add(")");
     } else {
-      block.add("$T.class", type.isPrimitive() ? type.box() : type);
+      block.add("$T.class", type);
     }
     return block.build();
   }
