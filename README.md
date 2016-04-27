@@ -18,30 +18,14 @@ Simply include auto-value-moshi in your project and add the generated JsonAdapte
   }
 }
 
-public class AutoValueJsonAdapterFactory extends JsonAdapter.Factory {
-  JsonAdapter<?> create(Type type, Set<? extends Annotation> annotations, Moshi moshi) {
-    Class<? super T> rawType = type.getRawType();
-    if (rawType.equals(Foo.class)) {
-      return (JsonAdapter<T>) new Foo.typeAdapter(moshi);
-    } else if (rawType.equals(Bar.class)) {
-      return (JsonAdapter<T>) new Bar.typeAdapter(moshi);
-    }
-    return null;
-  }
-}
-
 final Moshi moshi = new Moshi.Builder()
-    .add(new AutoValueJsonAdapterFactory())
+    .add(new AutoValueMoshiAdapterFactory())
     .build();
 ```
 
 Now build your project and de/serialize your Foo.
 
-## TODO
-
-This wouldn't be quite complete without some added features.
-
-* Automatic registration
+In addition to generating implementations of your `@AutoValue` annotated classes, auto-value-moshi also generates an `AutoValueMoshiAdapterFactory` class which you can register with Moshi to automatically add all of your generated JsonAdapters.
 
 ## Download
 
