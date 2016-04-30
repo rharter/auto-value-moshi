@@ -6,15 +6,17 @@ An extension for Google's [AutoValue](https://github.com/google/auto) that creat
 
 ## Usage
 
-Simply include auto-value-moshi in your project and add the generated JsonAdapterFactory to your Moshi instance.  You can also annotate your properties using `@Json` to define an alternate name for de/serialization.
+Simply include auto-value-moshi in your project and add a public static method with the following
+signature to classes you want to get Moshi `JsonAdapter`s. You can also annotate your properties
+using `@Json` to define an alternate name for de/serialization.
 
 ```java
 @AutoValue public abstract class Foo {
   abstract String bar();
   @Json(name="Baz") abstract String baz();
 
-  public static JsonAdapter<Foo> jsonAdapter() {
-    return AutoValue_Foo.jsonAdapter();
+  public static JsonAdapter<Foo> jsonAdapter(Moshi moshi) {
+    return AutoValue_Foo.MoshiJsonAdapter(moshi);
   }
 }
 
