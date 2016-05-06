@@ -1,5 +1,13 @@
 # Change Log
 
+## Version 0.3.0 (2016-05-06)
+
+#### Supports: AutoValue 1.2
+
+* Adds a generator to create a JsonAdapter.Factory which includes all applicable `@AutoValue` annotated class JsonAdapters. (#30)
+* Cleans up JsonAdapter support and adds exclusion support. (#23)
+* Adds support for primitive defaults in the adapters. (#27)
+
 ## Version 0.2.2 (2016-04-05)
 
 #### Supports: AutoValue 1.2-rc1
