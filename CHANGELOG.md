@@ -1,5 +1,11 @@
 # Change Log
 
+## Version 0.3.1 (2016-05-18)
+
+#### Supports: AutoValue 1.2
+
+* Fixes issue causing type comparison to fail in type adapter. 
+
 ## Version 0.3.0 (2016-05-06)
 
 #### Supports: AutoValue 1.2
