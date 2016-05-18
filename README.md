@@ -16,7 +16,7 @@ using `@Json` to define an alternate name for de/serialization.
   @Json(name="Baz") abstract String baz();
 
   public static JsonAdapter<Foo> jsonAdapter(Moshi moshi) {
-    return AutoValue_Foo.MoshiJsonAdapter(moshi);
+    return new AutoValue_Foo.MoshiJsonAdapter(moshi);
   }
 }
 
