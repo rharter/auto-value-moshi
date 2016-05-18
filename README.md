@@ -34,7 +34,7 @@ In addition to generating implementations of your `@AutoValue` annotated classes
 Add a Gradle dependency:
 
 ```groovy
-apt 'com.ryanharter.auto.value:auto-value-moshi:0.3.1'
+apt 'com.ryanharter.auto.value:auto-value-moshi:0.3.2'
 ```
 
 (Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)

@@ -1,5 +1,11 @@
 # Change Log
 
+## Version 0.3.2 (2016-05-18)
+
+#### Supports: AutoValue 1.2
+
+* Reverted 0.3.1 with breaking change.
+
 ## Version 0.3.1 (2016-05-18)
 
 #### Supports: AutoValue 1.2
