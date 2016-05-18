@@ -100,9 +100,9 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
     for (int i = 0; i < elements.size(); i++) {
       Element element = elements.get(i);
       if (i == 0) {
-        create.beginControlFlow("if ($N.equals($T.class))", type, element);
+        create.beginControlFlow("if ($T.class.isAssignableFrom($N.getClass()))", element, type);
       } else {
-        create.nextControlFlow("else if ($N.equals($T.class))", type, element);
+        create.nextControlFlow("else if ($T.class.isAssignableFrom($N.getClass()))", element, type);
       }
       ExecutableElement jsonAdapterMethod = getJsonAdapterMethod(element);
       create.addStatement("return $T." + jsonAdapterMethod.getSimpleName() + "($N)", element, moshi);
