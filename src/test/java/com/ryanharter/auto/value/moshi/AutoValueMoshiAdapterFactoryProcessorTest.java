@@ -53,6 +53,7 @@ public class AutoValueMoshiAdapterFactoryProcessorTest {
         + "import test.Bar;\n"
         + "import test.Foo;\n"
         + "\n"
+        + "Class<?> rawType = com.squareup.moshi.Types.getRawType(type);\n"
         + "public final class AutoValueMoshiAdapterFactory implements JsonAdapter.Factory {\n"
         + "  @Override public JsonAdapter<?> create(Type type, Set<? extends Annotation> annotations, Moshi moshi) {\n"
         + "    if (Foo.class.isAssignableFrom(type.getClass())) {\n"
