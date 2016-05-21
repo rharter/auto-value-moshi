@@ -140,12 +140,12 @@ public class AutoValueMoshiExtensionTest {
         + "      Map<String, Set<String>> g = null;\n"
         + "      String i = null;\n"
         + "      while (reader.hasNext()) {\n"
-        + "        String _name = reader.nextName();\n"
+        + "        String name = reader.nextName();\n"
         + "        if (reader.peek() == JsonReader.Token.NULL) {\n"
         + "          reader.skipValue();\n"
         + "          continue;\n"
         + "        }\n"
-        + "        switch (_name) {\n"
+        + "        switch (name) {\n"
         + "          case \"a\": {\n"
         + "            a = aAdapter.fromJson(reader);\n"
         + "            break;\n"
@@ -269,12 +269,12 @@ public class AutoValueMoshiExtensionTest {
         + "      String name = null;\n"
         + "      boolean awesome = false;\n"
         + "      while (reader.hasNext()) {\n"
-        + "        String _name = reader.nextName();\n"
+        + "        String name_ = reader.nextName();\n"
         + "        if (reader.peek() == JsonReader.Token.NULL) {\n"
         + "          reader.skipValue();\n"
         + "          continue;\n"
         + "        }\n"
-        + "        switch (_name) {\n"
+        + "        switch (name_) {\n"
         + "          case \"name\": {\n"
         + "            name = nameAdapter.fromJson(reader);\n"
         + "            break;\n"
@@ -389,12 +389,12 @@ public class AutoValueMoshiExtensionTest {
         + "      String a = null;\n"
         + "      String b = null;\n"
         + "      while (reader.hasNext()) {\n"
-        + "        String _name = reader.nextName();\n"
+        + "        String name = reader.nextName();\n"
         + "        if (reader.peek() == JsonReader.Token.NULL) {\n"
         + "          reader.skipValue();\n"
         + "          continue;\n"
         + "        }\n"
-        + "        switch (_name) {\n"
+        + "        switch (name) {\n"
         + "          case \"a\": {\n"
         + "            a = aAdapter.fromJson(reader);\n"
         + "            break;\n"
@@ -531,12 +531,12 @@ public class AutoValueMoshiExtensionTest {
         + "      double h = 0.0d;\n"
         + "      Object i = null;\n"
         + "      while (reader.hasNext()) {\n"
-        + "        String _name = reader.nextName();\n"
+        + "        String name = reader.nextName();\n"
         + "        if (reader.peek() == JsonReader.Token.NULL) {\n"
         + "          reader.skipValue();\n"
         + "          continue;\n"
         + "        }\n"
-        + "        switch (_name) {\n"
+        + "        switch (name) {\n"
         + "          case \"a\": {\n"
         + "            a = aAdapter.fromJson(reader);\n"
         + "            break;\n"
@@ -701,29 +701,6 @@ public class AutoValueMoshiExtensionTest {
         .generatesSources(expected);
   }
 
-  @Test public void emitsWarningForNoTypeAdapterTypeArgument() {
-    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
-        + "package test;\n"
-        + "import com.google.auto.value.AutoValue;\n"
-        + "import com.squareup.moshi.JsonAdapter;\n"
-        + "import com.squareup.moshi.Moshi;\n"
-        + "@AutoValue public abstract class Foo {\n"
-        + "  public static JsonAdapter jsonAdapter(Moshi moshi) {\n"
-        + "    return null;"
-        + "  }\n"
-        + "  public abstract String a();\n"
-        + "  public abstract boolean b();\n"
-        + "}"
-    );
-
-    assertAbout(javaSource())
-        .that(source1)
-        .processedWith(new AutoValueProcessor())
-        .compilesWithoutError()
-        .withWarningContaining("Found public static method returning JsonAdapter with no type "
-            + "arguments, skipping MoshiJsonAdapter generation.");
-  }
-
   @Test public void emitsWarningForWrongTypeAdapterTypeArgument() {
     JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
         + "package test;\n"
@@ -750,5 +727,118 @@ public class AutoValueMoshiExtensionTest {
         .compilesWithoutError()
         .withWarningContaining("Found public static method returning JsonAdapter<test.Bar> on "
             + "test.Foo class. Skipping MoshiJsonAdapter generation.");
+  }
+
+  @Test public void emitsWarningForNoTypeAdapterTypeArgument() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "@AutoValue public abstract class Foo {\n"
+        + "  public static JsonAdapter jsonAdapter(Moshi moshi) {\n"
+        + "    return null;"
+        + "  }\n"
+        + "  public abstract String a();\n"
+        + "  public abstract boolean b();\n"
+        + "}"
+    );
+
+    assertAbout(javaSource())
+        .that(source1)
+        .processedWith(new AutoValueProcessor())
+        .compilesWithoutError()
+        .withWarningContaining("Found public static method returning JsonAdapter with no type "
+            + "arguments, skipping MoshiJsonAdapter generation.");
+  }
+
+  @Test public void handlesConflictingVariableNames() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "@AutoValue public abstract class Foo {\n"
+        + "  public static JsonAdapter<Foo> jsonAdapter(Moshi moshi) {\n"
+        + "    return null;"
+        + "  }\n"
+        + "  public abstract String reader();\n"
+        + "  public abstract String name();\n"
+        + "}"
+    );
+
+    JavaFileObject expected = JavaFileObjects.forSourceString("test/AutoValue_Foo", ""
+        + "package test;\n"
+        + "\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.JsonReader;\n"
+        + "import com.squareup.moshi.JsonWriter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import java.io.IOException;\n"
+        + "import java.lang.Override;\n"
+        + "import java.lang.String;\n"
+        + "\n"
+        + "final class AutoValue_Foo extends $AutoValue_Foo {\n"
+        + "  AutoValue_Foo(String reader, String name) {\n"
+        + "    super(reader, name);\n"
+        + "  }\n"
+        + "\n"
+        + "  public static JsonAdapter<Foo> jsonAdapter(Moshi moshi) {\n"
+        + "    return new MoshiJsonAdapter(moshi);\n"
+        + "  }\n"
+        + "\n"
+        + "  public static final class MoshiJsonAdapter extends JsonAdapter<Foo> {\n"
+        + "    private final JsonAdapter<String> readerAdapter;\n"
+        + "    private final JsonAdapter<String> nameAdapter;\n"
+        + "    public MoshiJsonAdapter(Moshi moshi) {\n"
+        + "      this.readerAdapter = moshi.adapter(String.class);\n"
+        + "      this.nameAdapter = moshi.adapter(String.class);\n"
+        + "    }\n"
+        + "  \n"
+        + "    @Override public Foo fromJson(JsonReader reader) throws IOException {\n"
+        + "      reader.beginObject();\n"
+        + "      String reader_ = null;\n"
+        + "      String name = null;\n"
+        + "      while (reader.hasNext()) {\n"
+        + "        String name_ = reader.nextName();\n"
+        + "        if (reader.peek() == JsonReader.Token.NULL) {\n"
+        + "          reader.skipValue();\n"
+        + "          continue;\n"
+        + "        }\n"
+        + "        switch (name_) {\n"
+        + "          case \"reader\": {\n"
+        + "            reader_ = readerAdapter.fromJson(reader);\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"name\": {\n"
+        + "            name = nameAdapter.fromJson(reader);\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          default: {\n"
+        + "            reader.skipValue();\n"
+        + "          }\n"
+        + "        }\n"
+        + "      }\n"
+        + "      reader.endObject();\n"
+        + "      return new AutoValue_Foo(reader_, name);\n"
+        + "    }\n"
+        + "  \n"
+        + "    @Override public void toJson(JsonWriter writer, Foo value) throws IOException {\n"
+        + "      writer.beginObject();\n"
+        + "      writer.name(\"reader\");\n"
+        + "      readerAdapter.toJson(writer, value.reader());\n"
+        + "      writer.name(\"name\");\n"
+        + "      nameAdapter.toJson(writer, value.name());\n"
+        + "      writer.endObject();\n"
+        + "    }\n"
+        + "  }\n"
+        + "}"
+    );
+
+    assertAbout(javaSource())
+        .that(source1)
+        .processedWith(new AutoValueProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(expected);
   }
 }
