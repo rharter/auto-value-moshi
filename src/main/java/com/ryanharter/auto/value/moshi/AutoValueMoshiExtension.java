@@ -10,12 +10,12 @@ import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.NameAllocator;
 import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
-import com.squareup.javapoet.WildcardTypeName;
 import com.squareup.moshi.Json;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonQualifier;
@@ -26,9 +26,6 @@ import com.squareup.moshi.Types;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -230,7 +227,8 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         .build();
   }
 
-  public TypeSpec createTypeAdapter(ClassName className, ClassName autoValueClassName, List<Property> properties) {
+  public TypeSpec createTypeAdapter(ClassName className, ClassName autoValueClassName,
+      List<Property> properties) {
     ClassName jsonAdapter = ClassName.get(JsonAdapter.class);
     TypeName typeAdapterClass = ParameterizedTypeName.get(jsonAdapter, autoValueClassName);
 
@@ -332,10 +330,11 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     return writeMethod.build();
   }
 
-  public MethodSpec createReadMethod(ClassName className,
-      ClassName autoValueClassName,
+  public MethodSpec createReadMethod(ClassName className, ClassName autoValueClassName,
       ImmutableMap<Property, FieldSpec> adapters) {
-    ParameterSpec reader = ParameterSpec.builder(JsonReader.class, "reader").build();
+    NameAllocator nameAllocator = new NameAllocator();
+    ParameterSpec reader = ParameterSpec.builder(JsonReader.class, nameAllocator.newName("reader"))
+        .build();
     MethodSpec.Builder readMethod = MethodSpec.methodBuilder("fromJson")
         .addAnnotation(Override.class)
         .addModifiers(PUBLIC)
@@ -350,7 +349,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     // add the properties
     Map<Property, FieldSpec> fields = new LinkedHashMap<Property, FieldSpec>(adapters.size());
     for (Property prop : adapters.keySet()) {
-      FieldSpec field = FieldSpec.builder(prop.type, prop.humanName).build();
+      FieldSpec field = FieldSpec.builder(prop.type, nameAllocator.newName(prop.humanName)).build();
       fields.put(prop, field);
 
       readMethod.addStatement("$T $N = $L", field.type, field, defaultValue(field.type));
@@ -358,7 +357,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
 
     readMethod.beginControlFlow("while ($N.hasNext())", reader);
 
-    FieldSpec name = FieldSpec.builder(String.class, "_name").build();
+    FieldSpec name = FieldSpec.builder(String.class, nameAllocator.newName("name")).build();
     readMethod.addStatement("$T $N = $N.nextName()", name.type, name, reader);
 
     // check if JSON field value is NULL
