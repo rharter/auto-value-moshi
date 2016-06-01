@@ -137,13 +137,15 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
   }
 
   @Override
-  public String generateClass(Context context, String className, String classToExtend, boolean isFinal) {
+  public String generateClass(Context context, String className, String classToExtend,
+      boolean isFinal) {
     List<Property> properties = readProperties(context.properties());
 
     Map<String, TypeName> types = convertPropertiesToTypes(context.properties());
 
     ClassName classNameClass = ClassName.get(context.packageName(), className);
-    ClassName autoValueClass = ClassName.bestGuess(context.autoValueClass().getQualifiedName().toString());
+    ClassName autoValueClass =
+        ClassName.bestGuess(context.autoValueClass().getQualifiedName().toString());
 
     TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, properties);
     MethodSpec jsonAdapterMethod = createJsonAdapterMethod(autoValueClass, typeAdapter);
@@ -246,7 +248,8 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
 
       boolean usesJsonQualifier = false;
       for (AnnotationMirror annotationMirror : prop.element.getAnnotationMirrors()) {
-        if (annotationMirror.getAnnotationType().asElement().getAnnotation(JsonQualifier.class) != null) {
+        if (annotationMirror.getAnnotationType().asElement().getAnnotation(JsonQualifier.class)
+            != null) {
           usesJsonQualifier = true;
           needsAdapterMethod = true;
         }
@@ -283,10 +286,13 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         .returns(ClassName.get(JsonAdapter.class))
         .addCode(CodeBlock.builder()
             .beginControlFlow("try")
-            .addStatement("$T method = $T.class.getDeclaredMethod($N)", Method.class, autoValueClassName, methodName)
-            .addStatement("$T<$T> annotations = new $T<$T>()", Set.class, Annotation.class, LinkedHashSet.class, Annotation.class)
+            .addStatement("$T method = $T.class.getDeclaredMethod($N)", Method.class,
+                autoValueClassName, methodName)
+            .addStatement("$T<$T> annotations = new $T<$T>()", Set.class, Annotation.class,
+                LinkedHashSet.class, Annotation.class)
             .beginControlFlow("for ($T annotation : method.getAnnotations())", Annotation.class)
-            .beginControlFlow("if (annotation.annotationType().isAnnotationPresent($T.class))", JsonQualifier.class)
+            .beginControlFlow("if (annotation.annotationType().isAnnotationPresent($T.class))",
+                JsonQualifier.class)
             .addStatement("annotations.add(annotation)")
             .endControlFlow()
             .endControlFlow()

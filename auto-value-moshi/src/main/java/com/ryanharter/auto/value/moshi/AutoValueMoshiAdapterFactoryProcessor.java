@@ -17,7 +17,8 @@ import com.squareup.moshi.Moshi;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
-import java.util.LinkedList;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -57,36 +58,54 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
 
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-    List<Element> elements = new LinkedList<Element>();
+    Map<ClassName, List<Element>> elementMap = new HashMap<ClassName, List<Element>>();
+
     for (Element element : roundEnv.getElementsAnnotatedWith(AutoValue.class)) {
       AutoValueExtension.Context context = new LimitedContext(processingEnv, (TypeElement) element);
       if (extension.applicable(context)) {
-        elements.add(element);
+        MoshiAdapterFactory moshiAdapterFactory = element.getAnnotation(MoshiAdapterFactory.class);
+        if (moshiAdapterFactory != null) {
+          ClassName className =
+              ClassName.get(moshiAdapterFactory.packageName(), moshiAdapterFactory.simpleName());
+          List<Element> elements = elementMap.get(className);
+          if (elements == null) {
+            elements = new ArrayList<Element>();
+            elementMap.put(className, elements);
+          }
+          elements.add(element);
+        }
       }
     }
 
-    if (!elements.isEmpty()) {
-      TypeSpec jsonAdapterFactory = createJsonAdapterFactory(elements);
-      JavaFile file = JavaFile.builder("com.ryanharter.auto.value.moshi", jsonAdapterFactory).build();
-      try {
-        file.writeTo(processingEnv.getFiler());
-      } catch (IOException e) {
-        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Failed to write TypeAdapterFactory: " + e.getLocalizedMessage());
+    for (Map.Entry<ClassName, List<Element>> entry : elementMap.entrySet()) {
+      ClassName className = entry.getKey();
+      List<Element> elements = entry.getValue();
+      if (!elements.isEmpty()) {
+        TypeSpec jsonAdapterFactory = createJsonAdapterFactory(className, elements);
+        JavaFile file = JavaFile.builder(className.packageName(), jsonAdapterFactory)
+            .build();
+        try {
+          file.writeTo(processingEnv.getFiler());
+        } catch (IOException e) {
+          processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+              "Failed to write JsonAdapterFactory: " + e.getLocalizedMessage());
+        }
       }
     }
 
     return false;
   }
 
-  private TypeSpec createJsonAdapterFactory(List<Element> elements) {
-    TypeSpec.Builder factory = TypeSpec.classBuilder(ClassName.get("com.ryanharter.auto.value.moshi", "AutoValueMoshiAdapterFactory"));
+  private TypeSpec createJsonAdapterFactory(ClassName className, List<Element> elements) {
+    TypeSpec.Builder factory = TypeSpec.classBuilder(className);
     factory.addModifiers(PUBLIC, FINAL);
     factory.addSuperinterface(TypeName.get(JsonAdapter.Factory.class));
 
     ParameterSpec type = ParameterSpec.builder(Type.class, "type").build();
     WildcardTypeName extendsAnnotation = WildcardTypeName.subtypeOf(Annotation.class);
     ParameterSpec annotations = ParameterSpec
-        .builder(ParameterizedTypeName.get(ClassName.get(Set.class), extendsAnnotation), "annotations")
+        .builder(ParameterizedTypeName.get(ClassName.get(Set.class), extendsAnnotation),
+            "annotations")
         .build();
     ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
     ParameterizedTypeName result = ParameterizedTypeName.get(ClassName.get(JsonAdapter.class),
@@ -105,7 +124,8 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
         create.nextControlFlow("else if ($N.equals($T.class))", type, element);
       }
       ExecutableElement jsonAdapterMethod = getJsonAdapterMethod(element);
-      create.addStatement("return $T." + jsonAdapterMethod.getSimpleName() + "($N)", element, moshi);
+      create.addStatement("return $T." + jsonAdapterMethod.getSimpleName() + "($N)", element,
+          moshi);
     }
     create.nextControlFlow("else");
     create.addStatement("return null");
@@ -136,7 +156,8 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
     private final ProcessingEnvironment processingEnvironment;
     private final TypeElement autoValueClass;
 
-    private LimitedContext(ProcessingEnvironment processingEnvironment, TypeElement autoValueClass) {
+    private LimitedContext(ProcessingEnvironment processingEnvironment,
+        TypeElement autoValueClass) {
       this.processingEnvironment = processingEnvironment;
       this.autoValueClass = autoValueClass;
     }
