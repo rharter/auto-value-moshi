@@ -3,12 +3,13 @@ package com.ryanharter.auto.value.moshi;
 import com.google.auto.value.processor.AutoValueProcessor;
 import com.google.common.collect.ImmutableSet;
 import com.google.testing.compile.JavaFileObjects;
-import com.squareup.javapoet.ClassName;
-import java.util.Arrays;
-import javax.tools.JavaFileManager;
-import javax.tools.JavaFileObject;
+
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.Arrays;
+
+import javax.tools.JavaFileObject;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
@@ -18,6 +19,8 @@ public class AutoValueMoshiExtensionTest {
 
   private JavaFileObject serializedName;
   private JavaFileObject nullable;
+  private JavaFileObject serializeOnly;
+  private JavaFileObject deserializeOnly;
 
   @Before public void setup() {
     serializedName = JavaFileObjects.forSourceString("com.ryanharter.auto.value.moshi.SerializedName", ""
@@ -45,6 +48,28 @@ public class AutoValueMoshiExtensionTest {
         + "@Retention(SOURCE)\n"
         + "@Target({METHOD, PARAMETER, FIELD})\n"
         + "public @interface Nullable {\n"
+        + "}");
+
+    serializeOnly = JavaFileObjects.forSourceString("com.ryanharter.auto.value.moshi.SerializeOnly", ""
+        + "package com.ryanharter.auto.value.moshi;\n"
+        + "import java.lang.annotation.Retention;\n"
+        + "import java.lang.annotation.Target;\n"
+        + "import static java.lang.annotation.ElementType.METHOD;\n"
+        + "import static java.lang.annotation.RetentionPolicy.CLASS;\n"
+        + "@Retention(CLASS)\n"
+        + "@Target({METHOD})\n"
+        + "public @interface SerializeOnly {\n"
+        + "}");
+
+    deserializeOnly = JavaFileObjects.forSourceString("com.ryanharter.auto.value.moshi.DeserializeOnly", ""
+        + "package com.ryanharter.auto.value.moshi;\n"
+        + "import java.lang.annotation.Retention;\n"
+        + "import java.lang.annotation.Target;\n"
+        + "import static java.lang.annotation.ElementType.METHOD;\n"
+        + "import static java.lang.annotation.RetentionPolicy.CLASS;\n"
+        + "@Retention(CLASS)\n"
+        + "@Target({METHOD})\n"
+        + "public @interface DeserializeOnly {\n"
         + "}");
   }
 
@@ -837,6 +862,182 @@ public class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSource())
         .that(source1)
+        .processedWith(new AutoValueProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(expected);
+  }
+
+  @Test public void serializeOnly() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import com.ryanharter.auto.value.moshi.SerializeOnly;\n"
+        + "@AutoValue public abstract class Foo {\n"
+        + "  public static JsonAdapter<Foo> jsonAdapter(Moshi moshi) {\n"
+        + "    return null;"
+        + "  }\n"
+        + "  @SerializeOnly public abstract String reader();\n"
+        + "  public abstract String name();\n"
+        + "}"
+    );
+
+    JavaFileObject expected = JavaFileObjects.forSourceString("test/AutoValue_Foo", ""
+        + "package test;\n"
+        + "\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.JsonReader;\n"
+        + "import com.squareup.moshi.JsonWriter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import java.io.IOException;\n"
+        + "import java.lang.Override;\n"
+        + "import java.lang.String;\n"
+        + "\n"
+        + "final class AutoValue_Foo extends $AutoValue_Foo {\n"
+        + "  AutoValue_Foo(String reader, String name) {\n"
+        + "    super(reader, name);\n"
+        + "  }\n"
+        + "\n"
+        + "  public static JsonAdapter<Foo> jsonAdapter(Moshi moshi) {\n"
+        + "    return new MoshiJsonAdapter(moshi);\n"
+        + "  }\n"
+        + "\n"
+        + "  public static final class MoshiJsonAdapter extends JsonAdapter<Foo> {\n"
+        + "    private final JsonAdapter<String> readerAdapter;\n"
+        + "    private final JsonAdapter<String> nameAdapter;\n"
+        + "    public MoshiJsonAdapter(Moshi moshi) {\n"
+        + "      this.readerAdapter = moshi.adapter(String.class);\n"
+        + "      this.nameAdapter = moshi.adapter(String.class);\n"
+        + "    }\n"
+        + "  \n"
+        + "    @Override public Foo fromJson(JsonReader reader) throws IOException {\n"
+        + "      reader.beginObject();\n"
+        + "      String reader_ = null;\n"
+        + "      String name = null;\n"
+        + "      while (reader.hasNext()) {\n"
+        + "        String name_ = reader.nextName();\n"
+        + "        if (reader.peek() == JsonReader.Token.NULL) {\n"
+        + "          reader.skipValue();\n"
+        + "          continue;\n"
+        + "        }\n"
+        + "        switch (name_) {\n"
+        + "          case \"name\": {\n"
+        + "            name = nameAdapter.fromJson(reader);\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          default: {\n"
+        + "            reader.skipValue();\n"
+        + "          }\n"
+        + "        }\n"
+        + "      }\n"
+        + "      reader.endObject();\n"
+        + "      return new AutoValue_Foo(reader_, name);\n"
+        + "    }\n"
+        + "  \n"
+        + "    @Override public void toJson(JsonWriter writer, Foo value) throws IOException {\n"
+        + "      writer.beginObject();\n"
+        + "      writer.name(\"reader\");\n"
+        + "      readerAdapter.toJson(writer, value.reader());\n"
+        + "      writer.name(\"name\");\n"
+        + "      nameAdapter.toJson(writer, value.name());\n"
+        + "      writer.endObject();\n"
+        + "    }\n"
+        + "  }\n"
+        + "}"
+    );
+
+    assertAbout(javaSources())
+        .that(Arrays.asList(source1, serializeOnly))
+        .processedWith(new AutoValueProcessor())
+        .compilesWithoutError()
+        .and().generatesSources(expected);
+  }
+
+  @Test public void deserializeOnly() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import com.ryanharter.auto.value.moshi.DeserializeOnly;\n"
+        + "@AutoValue public abstract class Foo {\n"
+        + "  public static JsonAdapter<Foo> jsonAdapter(Moshi moshi) {\n"
+        + "    return null;"
+        + "  }\n"
+        + "  @DeserializeOnly public abstract String reader();\n"
+        + "  public abstract String name();\n"
+        + "}"
+    );
+
+    JavaFileObject expected = JavaFileObjects.forSourceString("test/AutoValue_Foo", ""
+        + "package test;\n"
+        + "\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.JsonReader;\n"
+        + "import com.squareup.moshi.JsonWriter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import java.io.IOException;\n"
+        + "import java.lang.Override;\n"
+        + "import java.lang.String;\n"
+        + "\n"
+        + "final class AutoValue_Foo extends $AutoValue_Foo {\n"
+        + "  AutoValue_Foo(String reader, String name) {\n"
+        + "    super(reader, name);\n"
+        + "  }\n"
+        + "\n"
+        + "  public static JsonAdapter<Foo> jsonAdapter(Moshi moshi) {\n"
+        + "    return new MoshiJsonAdapter(moshi);\n"
+        + "  }\n"
+        + "\n"
+        + "  public static final class MoshiJsonAdapter extends JsonAdapter<Foo> {\n"
+        + "    private final JsonAdapter<String> readerAdapter;\n"
+        + "    private final JsonAdapter<String> nameAdapter;\n"
+        + "    public MoshiJsonAdapter(Moshi moshi) {\n"
+        + "      this.readerAdapter = moshi.adapter(String.class);\n"
+        + "      this.nameAdapter = moshi.adapter(String.class);\n"
+        + "    }\n"
+        + "  \n"
+        + "    @Override public Foo fromJson(JsonReader reader) throws IOException {\n"
+        + "      reader.beginObject();\n"
+        + "      String reader_ = null;\n"
+        + "      String name = null;\n"
+        + "      while (reader.hasNext()) {\n"
+        + "        String name_ = reader.nextName();\n"
+        + "        if (reader.peek() == JsonReader.Token.NULL) {\n"
+        + "          reader.skipValue();\n"
+        + "          continue;\n"
+        + "        }\n"
+        + "        switch (name_) {\n"
+        + "          case \"reader\": {\n"
+        + "            reader_ = readerAdapter.fromJson(reader);\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"name\": {\n"
+        + "            name = nameAdapter.fromJson(reader);\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          default: {\n"
+        + "            reader.skipValue();\n"
+        + "          }\n"
+        + "        }\n"
+        + "      }\n"
+        + "      reader.endObject();\n"
+        + "      return new AutoValue_Foo(reader_, name);\n"
+        + "    }\n"
+        + "  \n"
+        + "    @Override public void toJson(JsonWriter writer, Foo value) throws IOException {\n"
+        + "      writer.beginObject();\n"
+        + "      writer.name(\"name\");\n"
+        + "      nameAdapter.toJson(writer, value.name());\n"
+        + "      writer.endObject();\n"
+        + "    }\n"
+        + "  }\n"
+        + "}"
+    );
+
+    assertAbout(javaSources())
+        .that(Arrays.asList(source1, deserializeOnly))
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
         .and().generatesSources(expected);

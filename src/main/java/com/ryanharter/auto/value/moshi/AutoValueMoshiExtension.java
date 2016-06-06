@@ -80,6 +80,14 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       return annotations.contains("Nullable");
     }
 
+    public Boolean serializeOnly() {
+      return annotations.contains("SerializeOnly");
+    }
+
+    public Boolean deserializeOnly() {
+      return annotations.contains("DeserializeOnly");
+    }
+
     private ImmutableSet<String> buildAnnotations(ExecutableElement element) {
       ImmutableSet.Builder<String> builder = ImmutableSet.builder();
 
@@ -315,14 +323,16 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
 
-      if (prop.nullable()) {
-        writeMethod.beginControlFlow("if ($N.$N() != null)", value, prop.methodName);
-        writeMethod.addStatement("$N.name($S)", writer, prop.serializedName());
-        writeMethod.addStatement("$N.toJson($N, $N.$N())", field, writer, value, prop.methodName);
-        writeMethod.endControlFlow();
-      } else {
-        writeMethod.addStatement("$N.name($S)", writer, prop.serializedName());
-        writeMethod.addStatement("$N.toJson($N, $N.$N())", field, writer, value, prop.methodName);
+      if (!prop.deserializeOnly()) {
+        if (prop.nullable()) {
+          writeMethod.beginControlFlow("if ($N.$N() != null)", value, prop.methodName);
+          writeMethod.addStatement("$N.name($S)", writer, prop.serializedName());
+          writeMethod.addStatement("$N.toJson($N, $N.$N())", field, writer, value, prop.methodName);
+          writeMethod.endControlFlow();
+        } else {
+          writeMethod.addStatement("$N.name($S)", writer, prop.serializedName());
+          writeMethod.addStatement("$N.toJson($N, $N.$N())", field, writer, value, prop.methodName);
+        }
       }
     }
     writeMethod.addStatement("$N.endObject()", writer);
@@ -369,12 +379,15 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     readMethod.beginControlFlow("switch ($N)", name);
     for (Map.Entry<Property, FieldSpec> entry : fields.entrySet()) {
       Property prop = entry.getKey();
-      FieldSpec field = entry.getValue();
 
-      readMethod.beginControlFlow("case $S:", prop.serializedName());
-      readMethod.addStatement("$N = $N.fromJson($N)", field, adapters.get(prop), reader);
-      readMethod.addStatement("break");
-      readMethod.endControlFlow();
+      if (!prop.serializeOnly()) {
+        FieldSpec field = entry.getValue();
+
+        readMethod.beginControlFlow("case $S:", prop.serializedName());
+        readMethod.addStatement("$N = $N.fromJson($N)", field, adapters.get(prop), reader);
+        readMethod.addStatement("break");
+        readMethod.endControlFlow();
+      }
     }
 
     // skip value if field is not serialized...
