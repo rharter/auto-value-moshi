@@ -1,5 +1,12 @@
 # Change Log
 
+## Version 0.3.3-rc1 (2016-06-13)
+
+#### Supports: AutoValue 1.3-rc1
+
+* Updates extension to support AutoValue 1.3-rc1
+* Fixes issue when using `JsonAdapters` with the same name. (fixes #36)
+
 ## Version 0.3.2 (2016-05-18)
 
 #### Supports: AutoValue 1.2
