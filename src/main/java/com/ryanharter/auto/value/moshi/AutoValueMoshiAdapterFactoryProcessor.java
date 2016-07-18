@@ -171,9 +171,10 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
   }
 
   private boolean containsJsonAdapterFactoryMirror(List<? extends TypeMirror> interfaces) {
+    TypeMirror jsonAdapterType
+        = elementUtils.getTypeElement(JsonAdapter.Factory.class.getCanonicalName()).asType();
     for (TypeMirror type : interfaces) {
-      if (typeUtils.isSameType(type,
-          elementUtils.getTypeElement(JsonAdapter.Factory.class.getCanonicalName()).asType())) {
+      if (typeUtils.isSameType(type, jsonAdapterType)) {
         return true;
       }
     }
