@@ -27,13 +27,26 @@ final Moshi moshi = new Moshi.Builder()
 
 Now build your project and de/serialize your Foo.
 
-In addition to generating implementations of your `@AutoValue` annotated classes, auto-value-moshi also generates an `AutoValueMoshiAdapterFactory` class which you can register with Moshi to automatically add all of your generated JsonAdapters.
+In addition to generating implementations of your `@AutoValue` annotated classes, auto-value-moshi 
+also generates an `AutoValueMoshiAdapterFactory` class which you can register with Moshi to 
+automatically add all of your generated JsonAdapters. If you want to customize the generated class, 
+you can specify the corresponding `moshiAdapterPackage` and `moshiAdapterName` processing args like
+so:
+
+```gradle
+apt {
+ arguments {
+   moshiAdapterPackage 'com.example'
+   moshiAdapterName 'AdapterFactory'
+ }
+}
+```
 
 ## Download
 
 Add a Gradle dependency:
 
-```groovy
+```gradle
 apt 'com.ryanharter.auto.value:auto-value-moshi:0.3.3-rc1'
 ```
 

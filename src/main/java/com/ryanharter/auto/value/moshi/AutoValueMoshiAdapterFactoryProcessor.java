@@ -43,6 +43,8 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 @AutoService(Processor.class)
 public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
 
+  static final String ADAPTER_NAME = "moshiAdapterName";
+  static final String ADAPTER_PACKAGE = "moshiAdapterPackage";
   private final AutoValueMoshiExtension extension = new AutoValueMoshiExtension();
 
   @Override
@@ -66,8 +68,16 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
     }
 
     if (!elements.isEmpty()) {
-      TypeSpec jsonAdapterFactory = createJsonAdapterFactory(elements);
-      JavaFile file = JavaFile.builder("com.ryanharter.auto.value.moshi", jsonAdapterFactory).build();
+      String packageName = "com.ryanharter.auto.value.moshi";
+      String adapterName = "AutoValueMoshiAdapterFactory";
+      if (processingEnv.getOptions().containsKey(ADAPTER_PACKAGE)) {
+        packageName = processingEnv.getOptions().get(ADAPTER_PACKAGE);
+      }
+      if (processingEnv.getOptions().containsKey(ADAPTER_NAME)) {
+        adapterName = processingEnv.getOptions().get(ADAPTER_NAME);
+      }
+      TypeSpec jsonAdapterFactory = createJsonAdapterFactory(elements, packageName, adapterName);
+      JavaFile file = JavaFile.builder(packageName, jsonAdapterFactory).build();
       try {
         file.writeTo(processingEnv.getFiler());
       } catch (IOException e) {
@@ -78,8 +88,11 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
     return false;
   }
 
-  private TypeSpec createJsonAdapterFactory(List<Element> elements) {
-    TypeSpec.Builder factory = TypeSpec.classBuilder(ClassName.get("com.ryanharter.auto.value.moshi", "AutoValueMoshiAdapterFactory"));
+  private TypeSpec createJsonAdapterFactory(
+      List<Element> elements,
+      String packageName,
+      String adapterName) {
+    TypeSpec.Builder factory = TypeSpec.classBuilder(ClassName.get(packageName, adapterName));
     factory.addModifiers(PUBLIC, FINAL);
     factory.addSuperinterface(TypeName.get(JsonAdapter.Factory.class));
 
