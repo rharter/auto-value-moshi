@@ -5,7 +5,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 import static java.lang.annotation.ElementType.TYPE;
-import static java.lang.annotation.RetentionPolicy.CLASS;
+import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 /**
  * Annotation to indicate that a given class should generate a concrete implementation of a
@@ -21,7 +21,7 @@ import static java.lang.annotation.RetentionPolicy.CLASS;
  *   }
  * </pre></code>
  */
-@Retention(CLASS)
+@Retention(SOURCE)
 @Target(TYPE)
 public @interface MoshiAdapterFactory {
 }
