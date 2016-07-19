@@ -79,27 +79,23 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
 
     if (!elements.isEmpty()) {
       Set<? extends Element> adaptorFactories = roundEnv.getElementsAnnotatedWith(MoshiAdapterFactory.class);
-      if (adaptorFactories.isEmpty()) {
-        error(elements.get(0), "Missing MoshiAdapterFactory class. In order to generate the class, you need to create an abstract class with the @MoshiAdapterFactory annotation that implements JsonAdapter.Factory.");
-      } else {
-        for (Element element : adaptorFactories) {
-          if (!element.getModifiers().contains(ABSTRACT)) {
-            error(element, "Must be abstract!");
-          }
-          TypeElement type = (TypeElement) element; // Safe to case because this is only applicable on types anyway
-          List<? extends TypeMirror> interfaces = type.getInterfaces();
-          if (interfaces.isEmpty() || !containsJsonAdapterFactoryMirror(interfaces)) {
-            error(element, "Must implement JsonAdapter.Factory!");
-          }
-          String adapterName = classNameOf(type);
-          String packageName = packageNameOf(type);
-          TypeSpec jsonAdapterFactory = createJsonAdapterFactory(elements, packageName, adapterName);
-          JavaFile file = JavaFile.builder(packageName, jsonAdapterFactory).build();
-          try {
-            file.writeTo(processingEnv.getFiler());
-          } catch (IOException e) {
-            processingEnv.getMessager().printMessage(ERROR, "Failed to write TypeAdapterFactory: " + e.getLocalizedMessage());
-          }
+      for (Element element : adaptorFactories) {
+        if (!element.getModifiers().contains(ABSTRACT)) {
+          error(element, "Must be abstract!");
+        }
+        TypeElement type = (TypeElement) element; // Safe to case because this is only applicable on types anyway
+        List<? extends TypeMirror> interfaces = type.getInterfaces();
+        if (interfaces.isEmpty() || !containsJsonAdapterFactoryMirror(interfaces)) {
+          error(element, "Must implement JsonAdapter.Factory!");
+        }
+        String adapterName = classNameOf(type);
+        String packageName = packageNameOf(type);
+        TypeSpec jsonAdapterFactory = createJsonAdapterFactory(elements, packageName, adapterName);
+        JavaFile file = JavaFile.builder(packageName, jsonAdapterFactory).build();
+        try {
+          file.writeTo(processingEnv.getFiler());
+        } catch (IOException e) {
+          processingEnv.getMessager().printMessage(ERROR, "Failed to write TypeAdapterFactory: " + e.getLocalizedMessage());
         }
       }
     }

@@ -138,24 +138,4 @@ public class AutoValueMoshiAdapterFactoryProcessorTest {
         .failsToCompile()
         .withErrorContaining("Must implement JsonAdapter.Factory!");
   }
-
-  @Test public void generatesJsonAdapterFactory_missingFactory_shouldFail() {
-    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
-        + "package test;\n"
-        + "import com.google.auto.value.AutoValue;\n"
-        + "import com.squareup.moshi.JsonAdapter;\n"
-        + "import com.squareup.moshi.Moshi;\n"
-        + "@AutoValue public abstract class Foo {\n"
-        + "  public static JsonAdapter<Foo> jsonAdapter(Moshi moshi) {\n"
-        + "    return null;\n"
-        + "  }\n"
-        + "  public abstract String getName();\n"
-        + "  public abstract boolean isAwesome();\n"
-        + "}");
-    assertAbout(javaSources())
-        .that(ImmutableSet.of(source1))
-        .processedWith(new AutoValueMoshiAdapterFactoryProcessor())
-        .failsToCompile()
-        .withErrorContaining("Missing MoshiAdapterFactory class");
-  }
 }
