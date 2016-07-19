@@ -83,7 +83,7 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
         if (!element.getModifiers().contains(ABSTRACT)) {
           error(element, "Must be abstract!");
         }
-        TypeElement type = (TypeElement) element; // Safe to case because this is only applicable on types anyway
+        TypeElement type = (TypeElement) element; // Safe to cast because this is only applicable on types anyway
         List<? extends TypeMirror> interfaces = type.getInterfaces();
         if (interfaces.isEmpty() || !containsJsonAdapterFactoryMirror(interfaces)) {
           error(element, "Must implement JsonAdapter.Factory!");
