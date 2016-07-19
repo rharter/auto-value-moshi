@@ -138,4 +138,40 @@ public class AutoValueMoshiAdapterFactoryProcessorTest {
         .failsToCompile()
         .withErrorContaining("Must implement JsonAdapter.Factory!");
   }
+
+  @Test public void generatesJsonAdapterFactory_shouldSearchUpAncestry() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "@AutoValue public abstract class Foo {\n"
+        + "  public static JsonAdapter<Foo> jsonAdapter(Moshi moshi) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        + "  public abstract String getName();\n"
+        + "  public abstract boolean isAwesome();\n"
+        + "}");
+    JavaFileObject source2 = JavaFileObjects.forSourceString("test.MyAdapterFactoryBase", ""
+        + "package test;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "public abstract class MyAdapterFactoryBase implements JsonAdapter.Factory {\n"
+        + "}");
+    JavaFileObject source3 = JavaFileObjects.forSourceString("test.MyAdapterFactory", ""
+        + "package test;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import com.ryanharter.auto.value.moshi.MoshiAdapterFactory;\n"
+        + "@MoshiAdapterFactory\n"
+        + "public abstract class MyAdapterFactory extends MyAdapterFactoryBase {\n"
+        + "  public static JsonAdapter.Factory create() {\n"
+        + "    return new AutoValueMoshi_MyAdapterFactory();\n"
+        + "  }\n"
+        + "}");
+    assertAbout(javaSources())
+        .that(ImmutableSet.of(source1, source2, source3))
+        .processedWith(new AutoValueMoshiAdapterFactoryProcessor())
+        .failsToCompile()
+        .withErrorContaining("Must implement JsonAdapter.Factory!");
+  }
 }

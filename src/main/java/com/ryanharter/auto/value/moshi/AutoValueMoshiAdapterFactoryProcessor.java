@@ -84,8 +84,7 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
           error(element, "Must be abstract!");
         }
         TypeElement type = (TypeElement) element; // Safe to cast because this is only applicable on types anyway
-        List<? extends TypeMirror> interfaces = type.getInterfaces();
-        if (interfaces.isEmpty() || !containsJsonAdapterFactoryMirror(interfaces)) {
+        if (!containsJsonAdapterFactoryMirror(type)) {
           error(element, "Must implement JsonAdapter.Factory!");
         }
         String adapterName = classNameOf(type);
@@ -166,11 +165,25 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
     processingEnv.getMessager().printMessage(ERROR, message, element);
   }
 
-  private boolean containsJsonAdapterFactoryMirror(List<? extends TypeMirror> interfaces) {
+  private boolean containsJsonAdapterFactoryMirror(TypeElement typeElement) {
     TypeMirror jsonAdapterType
         = elementUtils.getTypeElement(JsonAdapter.Factory.class.getCanonicalName()).asType();
-    for (TypeMirror type : interfaces) {
-      if (typeUtils.isSameType(type, jsonAdapterType)) {
+    if (typeMirrorsContain(typeElement.getInterfaces(), jsonAdapterType)) {
+      return true;
+    }
+    while (typeElement.getEnclosingElement() instanceof TypeElement) {
+      typeElement = (TypeElement) typeElement.getEnclosingElement();
+      if (typeMirrorsContain(typeElement.getInterfaces(), jsonAdapterType)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private boolean typeMirrorsContain(List<? extends TypeMirror> mirrors, TypeMirror target) {
+    for (TypeMirror type : mirrors) {
+      if (typeUtils.isSameType(type, target)) {
         return true;
       }
     }
