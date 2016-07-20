@@ -36,7 +36,7 @@ to help Moshi de/serialize your types.
 
 ```java
 @MoshiAdapterFactory
-public class MyAdapterFactory implements JsonAdapter.Factory {
+public abstract class MyAdapterFactory implements JsonAdapter.Factory {
 
   // Static factory method to access the package
   // private generated implementation
