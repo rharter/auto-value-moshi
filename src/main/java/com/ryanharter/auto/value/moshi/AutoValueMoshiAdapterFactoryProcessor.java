@@ -29,13 +29,19 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.NoType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
-import javax.tools.Diagnostic;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 
+import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.tools.Diagnostic.Kind.ERROR;
 
 /**
  * Created by rharter on 4/27/16.
@@ -44,15 +50,23 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
 
   private final AutoValueMoshiExtension extension = new AutoValueMoshiExtension();
+  private Types typeUtils;
+  private Elements elementUtils;
 
   @Override
   public Set<String> getSupportedAnnotationTypes() {
-    return ImmutableSet.of(AutoValue.class.getName());
+    return ImmutableSet.of(AutoValue.class.getName(), MoshiAdapterFactory.class.getName());
   }
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
     return SourceVersion.latestSupported();
+  }
+
+  @Override public synchronized void init(ProcessingEnvironment processingEnv) {
+    super.init(processingEnv);
+    typeUtils = processingEnv.getTypeUtils();
+    elementUtils = processingEnv.getElementUtils();
   }
 
   @Override
@@ -66,22 +80,37 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
     }
 
     if (!elements.isEmpty()) {
-      TypeSpec jsonAdapterFactory = createJsonAdapterFactory(elements);
-      JavaFile file = JavaFile.builder("com.ryanharter.auto.value.moshi", jsonAdapterFactory).build();
-      try {
-        file.writeTo(processingEnv.getFiler());
-      } catch (IOException e) {
-        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Failed to write TypeAdapterFactory: " + e.getLocalizedMessage());
+      Set<? extends Element> adaptorFactories = roundEnv.getElementsAnnotatedWith(MoshiAdapterFactory.class);
+      for (Element element : adaptorFactories) {
+        if (!element.getModifiers().contains(ABSTRACT)) {
+          error(element, "Must be abstract!");
+        }
+        TypeElement type = (TypeElement) element; // Safe to cast because this is only applicable on types anyway
+        if (!implementsJsonAdapterFactory(type)) {
+          error(element, "Must implement JsonAdapter.Factory!");
+        }
+        String adapterName = classNameOf(type);
+        String packageName = packageNameOf(type);
+        TypeSpec jsonAdapterFactory = createJsonAdapterFactory(elements, packageName, adapterName);
+        JavaFile file = JavaFile.builder(packageName, jsonAdapterFactory).build();
+        try {
+          file.writeTo(processingEnv.getFiler());
+        } catch (IOException e) {
+          processingEnv.getMessager().printMessage(ERROR, "Failed to write TypeAdapterFactory: " + e.getLocalizedMessage());
+        }
       }
     }
 
     return false;
   }
 
-  private TypeSpec createJsonAdapterFactory(List<Element> elements) {
-    TypeSpec.Builder factory = TypeSpec.classBuilder(ClassName.get("com.ryanharter.auto.value.moshi", "AutoValueMoshiAdapterFactory"));
+  private TypeSpec createJsonAdapterFactory(
+      List<Element> elements,
+      String packageName,
+      String adapterName) {
+    TypeSpec.Builder factory = TypeSpec.classBuilder(ClassName.get(packageName, "AutoValueMoshi_" + adapterName));
     factory.addModifiers(PUBLIC, FINAL);
-    factory.addSuperinterface(TypeName.get(JsonAdapter.Factory.class));
+    factory.superclass(ClassName.get(packageName, adapterName));
 
     ParameterSpec type = ParameterSpec.builder(Type.class, "type").build();
     WildcardTypeName extendsAnnotation = WildcardTypeName.subtypeOf(Annotation.class);
@@ -129,6 +158,72 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
       }
     }
     return null;
+  }
+
+  private void error(Element element, String message, Object... args) {
+    if (args.length > 0) {
+      message = String.format(message, args);
+    }
+    processingEnv.getMessager().printMessage(ERROR, message, element);
+  }
+
+  private boolean implementsJsonAdapterFactory(TypeElement type) {
+    TypeMirror jsonAdapterType
+        = elementUtils.getTypeElement(JsonAdapter.Factory.class.getCanonicalName()).asType();
+    TypeMirror typeMirror = type.asType();
+    if (!type.getInterfaces().isEmpty() || typeMirror.getKind() != TypeKind.NONE) {
+      while (typeMirror.getKind() != TypeKind.NONE) {
+        if (searchInterfacesAncestry(typeMirror, jsonAdapterType)) {
+          return true;
+        }
+        type = (TypeElement) typeUtils.asElement(typeMirror);
+        typeMirror = type.getSuperclass();
+      }
+    }
+    return false;
+  }
+
+  private boolean searchInterfacesAncestry(TypeMirror rootIface, TypeMirror target) {
+    TypeElement rootIfaceElement = (TypeElement) typeUtils.asElement(rootIface);
+    // check if it implements valid interfaces
+    for (TypeMirror iface : rootIfaceElement.getInterfaces()) {
+      TypeElement ifaceElement = (TypeElement) typeUtils.asElement(rootIface);
+      while (iface.getKind() != TypeKind.NONE) {
+        if (typeUtils.isSameType(iface, target)) {
+          return true;
+        }
+        // go up
+        if (searchInterfacesAncestry(iface, target)) {
+          return true;
+        }
+        // then move on
+        iface = ifaceElement.getSuperclass();
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns the name of the given type, including any enclosing types but not the package.
+   */
+  private static String classNameOf(TypeElement type) {
+    String name = type.getQualifiedName().toString();
+    String pkgName = packageNameOf(type);
+    return pkgName.isEmpty() ? name : name.substring(pkgName.length() + 1);
+  }
+
+  /**
+   * Returns the name of the package that the given type is in. If the type is in the default
+   * (unnamed) package then the name is the empty string.
+   */
+  private static String packageNameOf(TypeElement type) {
+    while (true) {
+      Element enclosing = type.getEnclosingElement();
+      if (enclosing instanceof PackageElement) {
+        return ((PackageElement) enclosing).getQualifiedName().toString();
+      }
+      type = (TypeElement) enclosing;
+    }
   }
 
   private static class LimitedContext implements AutoValueExtension.Context {
