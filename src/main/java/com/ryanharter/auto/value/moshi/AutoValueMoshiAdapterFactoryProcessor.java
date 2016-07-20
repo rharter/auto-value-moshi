@@ -31,6 +31,8 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.NoType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
@@ -84,7 +86,7 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
           error(element, "Must be abstract!");
         }
         TypeElement type = (TypeElement) element; // Safe to cast because this is only applicable on types anyway
-        if (!containsJsonAdapterFactoryMirror(type)) {
+        if (!implementsJsonAdapterFactory(type)) {
           error(element, "Must implement JsonAdapter.Factory!");
         }
         String adapterName = classNameOf(type);
@@ -165,26 +167,37 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
     processingEnv.getMessager().printMessage(ERROR, message, element);
   }
 
-  private boolean containsJsonAdapterFactoryMirror(TypeElement typeElement) {
+  private boolean implementsJsonAdapterFactory(TypeElement type) {
     TypeMirror jsonAdapterType
         = elementUtils.getTypeElement(JsonAdapter.Factory.class.getCanonicalName()).asType();
-    if (typeMirrorsContain(typeElement.getInterfaces(), jsonAdapterType)) {
-      return true;
-    }
-    while (typeElement.getEnclosingElement() instanceof TypeElement) {
-      typeElement = (TypeElement) typeElement.getEnclosingElement();
-      if (typeMirrorsContain(typeElement.getInterfaces(), jsonAdapterType)) {
-        return true;
+    TypeMirror typeMirror = type.asType();
+    if (!type.getInterfaces().isEmpty() || typeMirror.getKind() != TypeKind.NONE) {
+      while (typeMirror.getKind() != TypeKind.NONE) {
+        if (searchInterfacesAncestry(typeMirror, jsonAdapterType)) {
+          return true;
+        }
+        type = (TypeElement) typeUtils.asElement(typeMirror);
+        typeMirror = type.getSuperclass();
       }
     }
-
     return false;
   }
 
-  private boolean typeMirrorsContain(List<? extends TypeMirror> mirrors, TypeMirror target) {
-    for (TypeMirror type : mirrors) {
-      if (typeUtils.isSameType(type, target)) {
-        return true;
+  private boolean searchInterfacesAncestry(TypeMirror rootIface, TypeMirror target) {
+    TypeElement rootIfaceElement = (TypeElement) typeUtils.asElement(rootIface);
+    // check if it implements valid interfaces
+    for (TypeMirror iface : rootIfaceElement.getInterfaces()) {
+      TypeElement ifaceElement = (TypeElement) typeUtils.asElement(rootIface);
+      while (iface.getKind() != TypeKind.NONE) {
+        if (typeUtils.isSameType(iface, target)) {
+          return true;
+        }
+        // go up
+        if (searchInterfacesAncestry(iface, target)) {
+          return true;
+        }
+        // then move on
+        iface = ifaceElement.getSuperclass();
       }
     }
     return false;
