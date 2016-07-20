@@ -1,5 +1,12 @@
 # Change Log
 
+## Version 0.4.0-rc2 (2016-07-20)
+
+#### Supports: AutoValue 1.3-rc2
+
+* Updates extension to support AutoValue 1.3-rc2
+* Adds `@MoshiAdapterFactory` annotation to create a `JsonAdapter.Factory` for all auto-value-moshi types. (Thanks @hzsweers)
+
 ## Version 0.3.3-rc1 (2016-06-13)
 
 #### Supports: AutoValue 1.3-rc1

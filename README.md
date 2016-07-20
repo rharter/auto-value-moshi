@@ -60,7 +60,7 @@ Moshi moshi = new Moshi.Builder()
 Add a Gradle dependency:
 
 ```groovy
-apt 'com.ryanharter.auto.value:auto-value-moshi:0.3.3-rc1'
+apt 'com.ryanharter.auto.value:auto-value-moshi:0.4.0-rc2'
 ```
 
 (Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)
