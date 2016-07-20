@@ -19,15 +19,41 @@ using `@Json` to define an alternate name for de/serialization.
     return new AutoValue_Foo.MoshiJsonAdapter(moshi);
   }
 }
-
-final Moshi moshi = new Moshi.Builder()
-    .add(new AutoValueMoshiAdapterFactory())
-    .build();
 ```
 
 Now build your project and de/serialize your Foo.
 
-In addition to generating implementations of your `@AutoValue` annotated classes, auto-value-moshi also generates an `AutoValueMoshiAdapterFactory` class which you can register with Moshi to automatically add all of your generated JsonAdapters.
+## Factory
+
+Optionally, auto-value-moshi can create a single [JsonAdapter.Factory](http://square.github.io/moshi/1.x/moshi/com/squareup/moshi/JsonAdapter.Factory.html) so
+that you don't have to add each generated JsonAdapter to your Moshi instance manually.
+
+To generate a `JsonAdapter.Factory` for all of your auto-value-moshi classes, simply create
+an abstract class that implements `JsonAdapter.Factory` and annotate it with `@MoshiAdapterFactory`,
+and auto-value-moshi will create an implementation for you.  You simply need to provide a static
+factory method, just like your AutoValue classes, and you can use the generated `JsonAdapter.Factory`
+to help Moshi de/serialize your types.
+
+```java
+@MoshiAdapterFactory
+public class MyAdapterFactory implements JsonAdapter.Factory {
+
+  // Static factory method to access the package
+  // private generated implementation
+  public static JsonAdapter.Factory create() {
+    return new AutoValueMoshi_MyAdapterFactory();
+  }
+  
+}
+```
+
+Then you simply need to register the Factory with Moshi.
+
+```java
+Moshi moshi = new Moshi.Builder()
+    .add(MyAdapterFactory.create())
+    .build();
+```
 
 ## Download
 
