@@ -143,7 +143,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     Map<String, TypeName> types = convertPropertiesToTypes(context.properties());
 
     ClassName classNameClass = ClassName.get(context.packageName(), className);
-    ClassName autoValueClass = ClassName.bestGuess(context.autoValueClass().getQualifiedName().toString());
+    ClassName autoValueClass = ClassName.get(context.autoValueClass());
 
     TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, properties);
     MethodSpec jsonAdapterMethod = createJsonAdapterMethod(autoValueClass, typeAdapter);

@@ -77,6 +77,57 @@ public class AutoValueMoshiAdapterFactoryProcessorTest {
         .generatesSources(expected);
   }
 
+  @Test public void canHandleUppercasePackageNames() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("com.Test.Foo", ""
+        + "package com.Test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "@AutoValue public abstract class Foo {\n"
+        + "  public static JsonAdapter<Foo> jsonAdapter(Moshi moshi) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        + "  public abstract String getName();\n"
+        + "  public abstract boolean isAwesome();\n"
+        + "}");
+    JavaFileObject source3 = JavaFileObjects.forSourceString("com.Test.MyAdapterFactory", ""
+        + "package com.Test;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import com.ryanharter.auto.value.moshi.MoshiAdapterFactory;\n"
+        + "@MoshiAdapterFactory\n"
+        + "public abstract class MyAdapterFactory implements JsonAdapter.Factory {\n"
+        + "  public static JsonAdapter.Factory create() {\n"
+        + "    return new AutoValueMoshi_MyAdapterFactory();\n"
+        + "  }\n"
+        + "}");
+    JavaFileObject expected = JavaFileObjects.forSourceString("com.Test.AutoValueMoshi_MyAdapterFactory", ""
+        + "package com.Test;\n"
+        + "\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import java.lang.Override;\n"
+        + "import java.lang.annotation.Annotation;\n"
+        + "import java.lang.reflect.Type;\n"
+        + "import java.util.Set;\n"
+        + "\n"
+        + "public final class AutoValueMoshi_MyAdapterFactory extends MyAdapterFactory {\n"
+        + "  @Override public JsonAdapter<?> create(Type type, Set<? extends Annotation> annotations, Moshi moshi) {\n"
+        + "    if (type.equals(Foo.class)) {\n"
+        + "      return Foo.jsonAdapter(moshi);\n"
+        + "    } else {\n"
+        + "      return null;\n"
+        + "    }\n"
+        + "  }\n"
+        + "}");
+    assertAbout(javaSources())
+        .that(ImmutableSet.of(source1, source3))
+        .processedWith(new AutoValueMoshiAdapterFactoryProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected);
+  }
+
   @Test public void generatesJsonAdapterFactory_notAbstract_shouldFail() {
     JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
         + "package test;\n"
