@@ -1,5 +1,12 @@
 # Change Log
 
+## Version 0.4.0 (2016-09-18)
+
+#### Supports: AutoValue 1.3
+
+* Updates extension to support AutoValue 1.3 (#50)
+* Properly handle uppercase package names. (#52)
+
 ## Version 0.4.0-rc2 (2016-07-20)
 
 #### Supports: AutoValue 1.3-rc2
