@@ -1,5 +1,11 @@
 # Change Log
 
+## Version 0.4.1 (2016-10-17)
+
+#### Supports: AutoValue 1.3
+
+* Fixes generated adapter method for annotated methods. (#57)
+
 ## Version 0.4.0 (2016-09-18)
 
 #### Supports: AutoValue 1.3
