@@ -1,0 +1,20 @@
+apply plugin: 'java'
+apply plugin: 'maven-publish'
+
+sourceCompatibility = versions.java
+targetCompatibility = versions.java
+
+dependencies {
+    compile libraries.javaPoet
+    compile libraries.autoValue
+    compile libraries.autoService
+    compile libraries.autoCommon
+    compile libraries.moshi
+
+    testCompile libraries.junit
+    testCompile libraries.truth
+    testCompile libraries.compileTesting
+    testCompile libraries.toolsJar
+}
+
+apply from: rootProject.file('gradle/gradle-mvn-push.gradle')
