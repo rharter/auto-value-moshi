@@ -7,9 +7,6 @@ sourceCompatibility = 1.7
 targetCompatibility = 1.7
 
 repositories {
-    maven {
-        url 'http://oss.sonatype.org/content/repositories/snapshots'
-    }
     mavenCentral()
 }
 
