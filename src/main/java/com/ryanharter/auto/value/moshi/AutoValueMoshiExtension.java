@@ -160,14 +160,14 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
 
     TypeName superclass;
 
-    if(shouldCreateGenerics) {
+    if (shouldCreateGenerics) {
       genericTypeNames = new TypeVariableName[typeParams.size()];
       for (int i = 0; i < typeParams.size(); i++)
         genericTypeNames[i] = TypeVariableName.get(typeParams.get(i));
 
       superclass = ParameterizedTypeName.get(ClassName.get(context.packageName(), classToExtend), (TypeName[]) genericTypeNames);
       autoValueClassName = ParameterizedTypeName.get(autoValueClass, (TypeName[]) genericTypeNames);
-    }else {
+    } else {
       superclass = TypeVariableName.get(classToExtend);
     }
 
@@ -180,8 +180,9 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         .addMethod(generateConstructor(types))
         .addMethod(jsonAdapterMethod);
 
-    if(shouldCreateGenerics)
+    if (shouldCreateGenerics) {
       subclass.addTypeVariables(Arrays.asList(genericTypeNames));
+    }
 
     if (isFinal) {
       subclass.addModifiers(FINAL);
@@ -249,18 +250,19 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
   public MethodSpec createJsonAdapterMethod(TypeName autoValueClass,
       TypeVariableName[] genericTypeNames, TypeSpec jsonAdapter) {
     ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
-    ParameterSpec type = ParameterSpec.builder(Type[].class, "types").build();
     MethodSpec.Builder builder = MethodSpec.methodBuilder("jsonAdapter")
         .addModifiers(PUBLIC, STATIC)
         .addParameter(moshi)
         .returns(ParameterizedTypeName.get(ClassName.get(JsonAdapter.class), autoValueClass));
 
-    if(genericTypeNames != null) {
+    if (genericTypeNames != null) {
+      ParameterSpec type = ParameterSpec.builder(Type[].class, "types").build();
       builder.addParameter(type)
           .addTypeVariables(Arrays.asList(genericTypeNames))
           .addStatement("return new $N($N, $N)", jsonAdapter, moshi, type);
-    }else
+    } else {
       builder.addStatement("return new $N($N)", jsonAdapter, moshi);
+    }
 
     return builder.build();
   }
@@ -273,14 +275,16 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
 
     ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
-    ParameterSpec type = ParameterSpec.builder(Type[].class, "types").build();
+    ParameterSpec type = null;
 
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder()
         .addModifiers(PUBLIC)
         .addParameter(moshi);
 
-    if(genericTypeNames != null )
+    if (genericTypeNames != null ) {
+      type = ParameterSpec.builder(Type[].class, "types").build();
       constructor.addParameter(type);
+    }
 
     boolean needsAdapterMethod = false;
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
@@ -299,16 +303,11 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       } else if (genericTypeNames != null && prop.type instanceof ParameterizedTypeName) {
         ParameterizedTypeName typeName = ((ParameterizedTypeName) prop.type);
         constructor.addStatement("this.$N = $N.adapter($T.newParameterizedType($T.class, $N[$L]))",
-                field, moshi, Types.class, typeName.rawType, type.name,
-                Arrays.binarySearch(genericTypeNames, typeName.typeArguments.get(0), new Comparator<TypeName>() {
-                  @Override
-                  public int compare(TypeName typeName, TypeName t1) {
-                    if(typeName.equals(t1))
-                      return 0;
-                    else
-                      return -1;
-                  }
-                }));
+                field, moshi, Types.class, typeName.rawType, type,
+                getTypeIndexInArray(genericTypeNames, typeName.typeArguments.get(0)));
+      } else if (genericTypeNames != null && getTypeIndexInArray(genericTypeNames, prop.type) >= 0) {
+        constructor.addStatement("this.$N = $N.adapter($N[$L])", field, moshi, type,
+                getTypeIndexInArray(genericTypeNames,  prop.type));
       } else {
         constructor.addStatement("this.$N = $N.adapter($L)", field, moshi, makeType(prop.type));
       }
@@ -323,7 +322,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         .addMethod(createReadMethod(className, autoValueClassName, adapters))
         .addMethod(createWriteMethod(autoValueClassName, adapters));
 
-    if(genericTypeNames != null){
+    if (genericTypeNames != null) {
       classBuilder.addTypeVariables(Arrays.asList(genericTypeNames));
     }
 
@@ -332,6 +331,15 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     }
 
     return classBuilder.build();
+  }
+
+  private int getTypeIndexInArray(TypeVariableName[] array, TypeName typeName) {
+    return Arrays.binarySearch(array, typeName, new Comparator<TypeName>() {
+      @Override
+      public int compare(TypeName typeName, TypeName t1) {
+        return typeName.equals(t1) ? 0 : -1;
+      }
+    });
   }
 
   private MethodSpec createAdapterMethod(TypeName autoValueClassName) {

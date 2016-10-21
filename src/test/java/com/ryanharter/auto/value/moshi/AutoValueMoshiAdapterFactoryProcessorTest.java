@@ -64,9 +64,8 @@ public class AutoValueMoshiAdapterFactoryProcessorTest {
         + "      return Foo.jsonAdapter(moshi);\n"
         + "    } else if (type.equals(Bar.class)) {\n"
         + "      return Bar.jsonAdapter(moshi);\n"
-        + "    } else {\n"
-        + "      return null;\n"
         + "    }\n"
+        + "    return null;\n"
         + "  }\n"
         + "}");
     assertAbout(javaSources())
@@ -115,9 +114,8 @@ public class AutoValueMoshiAdapterFactoryProcessorTest {
         + "  @Override public JsonAdapter<?> create(Type type, Set<? extends Annotation> annotations, Moshi moshi) {\n"
         + "    if (type.equals(Foo.class)) {\n"
         + "      return Foo.jsonAdapter(moshi);\n"
-        + "    } else {\n"
-        + "      return null;\n"
         + "    }\n"
+        + "    return null;\n"
         + "  }\n"
         + "}");
     assertAbout(javaSources())
@@ -247,9 +245,8 @@ public class AutoValueMoshiAdapterFactoryProcessorTest {
             + "      return Foo.jsonAdapter(moshi);\n"
             + "    } else if (type.equals(Bar.class)) {\n"
             + "      return Bar.jsonAdapter(moshi);\n"
-            + "    } else {\n"
-            + "      return null;\n"
             + "    }\n"
+            + "    return null;\n"
             + "  }\n"
             + "}");
     assertAbout(javaSources()).that(ImmutableSet.of(source1, source2, source3, source4))
@@ -321,9 +318,8 @@ public class AutoValueMoshiAdapterFactoryProcessorTest {
             + "      return Foo.jsonAdapter(moshi);\n"
             + "    } else if (type.equals(Bar.class)) {\n"
             + "      return Bar.jsonAdapter(moshi);\n"
-            + "    } else {\n"
-            + "      return null;\n"
             + "    }\n"
+            + "    return null;\n"
             + "  }\n"
             + "}");
     assertAbout(javaSources()).that(ImmutableSet.of(source1, source2, source3, source4, source5))
@@ -373,11 +369,14 @@ public class AutoValueMoshiAdapterFactoryProcessorTest {
             + "\n"
             + "public final class AutoValueMoshi_MyAdapterFactory extends MyAdapterFactory {\n"
             + "  @Override public JsonAdapter<?> create(Type type, Set<? extends Annotation> annotations, Moshi moshi) {\n"
-            + "    if (type instanceof ParameterizedType && ((ParameterizedType) type).getRawType().equals(Foo.class)) {\n"
-            + "      return Foo.jsonAdapter(moshi, ((ParameterizedType) type).getActualTypeArguments());\n"
-            + "    } else {\n"
+            + "    if (type instanceof ParameterizedType) {\n"
+            + "      Type rawType = ((ParameterizedType) type).getRawType();\n"
+            + "      if (rawType.equals(Foo.class)) {\n"
+            + "        return Foo.jsonAdapter(moshi, ((ParameterizedType) type).getActualTypeArguments());\n"
+            + "      }\n"
             + "      return null;\n"
             + "    }\n"
+            + "    return null;\n"
             + "  }\n"
             + "}");
     assertAbout(javaSources())
