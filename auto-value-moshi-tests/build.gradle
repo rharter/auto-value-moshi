@@ -1,0 +1,15 @@
+apply plugin: 'net.ltgt.apt'
+apply plugin: 'java'
+
+sourceCompatibility = versions.java
+targetCompatibility = versions.java
+
+dependencies {
+    compile libraries.moshi
+
+    compileOnly project(':auto-value-moshi')
+    apt project(':auto-value-moshi')
+
+    testCompile libraries.junit
+    testCompile libraries.assertJ
+}

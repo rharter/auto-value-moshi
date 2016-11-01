@@ -1,2 +1,5 @@
-rootProject.name = 'auto-value-moshi'
+include ':auto-value-moshi'
+include ':auto-value-moshi-tests'
+
+rootProject.name = 'auto-value-moshi-root'
 
