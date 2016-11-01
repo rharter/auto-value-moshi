@@ -104,9 +104,7 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
     return false;
   }
 
-  private TypeSpec createJsonAdapterFactory(
-      List<Element> elements,
-      String packageName,
+  private TypeSpec createJsonAdapterFactory(List<Element> elements, String packageName,
       String adapterName) {
     TypeSpec.Builder factory = TypeSpec.classBuilder(ClassName.get(packageName, "AutoValueMoshi_" + adapterName));
     factory.addModifiers(PUBLIC, FINAL);
@@ -125,6 +123,9 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
         .addAnnotation(Override.class)
         .addParameters(ImmutableSet.of(type, annotations, moshi))
         .returns(result);
+
+    // Avoid providing an adapter for an annotated type.
+    create.addStatement("if (!$N.isEmpty()) return null", annotations);
 
     for (int i = 0; i < elements.size(); i++) {
       Element element = elements.get(i);
