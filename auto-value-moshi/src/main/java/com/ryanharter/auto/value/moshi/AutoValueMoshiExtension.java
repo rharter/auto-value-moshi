@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -50,6 +51,7 @@ import static javax.lang.model.element.Modifier.STATIC;
 
 @AutoService(AutoValueExtension.class)
 public class AutoValueMoshiExtension extends AutoValueExtension {
+  private static final ClassName ADAPTER_CLASS_NAME = ClassName.get(JsonAdapter.class);
 
   public static class Property {
     final String methodName;
@@ -76,7 +78,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       }
     }
 
-    public Boolean nullable() {
+    public boolean nullable() {
       return annotations.contains("Nullable");
     }
 
@@ -97,7 +99,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     // check that the class contains a public static method returning a JsonAdapter
     TypeElement type = context.autoValueClass();
     ParameterizedTypeName jsonAdapterType = ParameterizedTypeName.get(
-        ClassName.get(JsonAdapter.class), TypeName.get(type.asType()));
+        ADAPTER_CLASS_NAME, TypeName.get(type.asType()));
     TypeName returnedJsonAdapter = null;
     for (ExecutableElement method : ElementFilter.methodsIn(type.getEnclosedElements())) {
       if (method.getModifiers().contains(Modifier.STATIC)
@@ -137,7 +139,8 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
   }
 
   @Override
-  public String generateClass(Context context, String className, String classToExtend, boolean isFinal) {
+  public String generateClass(Context context, String className, String classToExtend,
+      boolean isFinal) {
     List<Property> properties = readProperties(context.properties());
 
     Map<String, TypeName> types = convertPropertiesToTypes(context.properties());
@@ -164,7 +167,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
   }
 
   public List<Property> readProperties(Map<String, ExecutableElement> properties) {
-    List<Property> values = new LinkedList<Property>();
+    List<Property> values = new LinkedList<>();
     for (Map.Entry<String, ExecutableElement> entry : properties.entrySet()) {
       values.add(new Property(entry.getKey(), entry.getValue()));
     }
@@ -174,10 +177,9 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
   ImmutableMap<Property, FieldSpec> createFields(List<Property> properties) {
     ImmutableMap.Builder<Property, FieldSpec> fields = ImmutableMap.builder();
 
-    ClassName jsonAdapter = ClassName.get(JsonAdapter.class);
     for (Property property : properties) {
       TypeName type = property.type.isPrimitive() ? property.type.box() : property.type;
-      ParameterizedTypeName adp = ParameterizedTypeName.get(jsonAdapter, type);
+      ParameterizedTypeName adp = ParameterizedTypeName.get(ADAPTER_CLASS_NAME, type);
       fields.put(property,
           FieldSpec.builder(adp, property.humanName + "Adapter", PRIVATE, FINAL).build());
     }
@@ -205,11 +207,9 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     return builder.build();
   }
 
-  /**
-   * Converts the ExecutableElement properties to TypeName properties
-   */
+  /** Converts the ExecutableElement properties to TypeName properties. */
   Map<String, TypeName> convertPropertiesToTypes(Map<String, ExecutableElement> properties) {
-    Map<String, TypeName> types = new LinkedHashMap<String, TypeName>();
+    Map<String, TypeName> types = new LinkedHashMap<>();
     for (Map.Entry<String, ExecutableElement> entry : properties.entrySet()) {
       ExecutableElement el = entry.getValue();
       types.put(entry.getKey(), TypeName.get(el.getReturnType()));
@@ -222,15 +222,14 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     return MethodSpec.methodBuilder("jsonAdapter")
         .addModifiers(PUBLIC, STATIC)
         .addParameter(moshi)
-        .returns(ParameterizedTypeName.get(ClassName.get(JsonAdapter.class), autoValueClass))
+        .returns(ParameterizedTypeName.get(ADAPTER_CLASS_NAME, autoValueClass))
         .addStatement("return new $N($N)", jsonAdapter, moshi)
         .build();
   }
 
   public TypeSpec createTypeAdapter(ClassName className, ClassName autoValueClassName,
       List<Property> properties) {
-    ClassName jsonAdapter = ClassName.get(JsonAdapter.class);
-    TypeName typeAdapterClass = ParameterizedTypeName.get(jsonAdapter, autoValueClassName);
+    TypeName typeAdapterClass = ParameterizedTypeName.get(ADAPTER_CLASS_NAME, autoValueClassName);
 
     ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
 
@@ -246,7 +245,8 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
 
       boolean usesJsonQualifier = false;
       for (AnnotationMirror annotationMirror : prop.element.getAnnotationMirrors()) {
-        if (annotationMirror.getAnnotationType().asElement().getAnnotation(JsonQualifier.class) != null) {
+        Element annotationType = annotationMirror.getAnnotationType().asElement();
+        if (annotationType.getAnnotation(JsonQualifier.class) != null) {
           usesJsonQualifier = true;
           needsAdapterMethod = true;
         }
@@ -259,7 +259,6 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     }
 
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder("MoshiJsonAdapter")
-        .addModifiers(PUBLIC, STATIC, FINAL)
         .addModifiers(PUBLIC, STATIC, FINAL)
         .superclass(typeAdapterClass)
         .addFields(adapters.values())
@@ -280,13 +279,16 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     return MethodSpec.methodBuilder("adapter")
         .addModifiers(PRIVATE)
         .addParameters(ImmutableSet.of(moshi, methodName))
-        .returns(ClassName.get(JsonAdapter.class))
+        .returns(ADAPTER_CLASS_NAME)
         .addCode(CodeBlock.builder()
             .beginControlFlow("try")
-            .addStatement("$T method = $T.class.getDeclaredMethod($N)", Method.class, autoValueClassName, methodName)
-            .addStatement("$T<$T> annotations = new $T<>()", Set.class, Annotation.class, LinkedHashSet.class)
+            .addStatement("$T method = $T.class.getDeclaredMethod($N)",
+                Method.class, autoValueClassName, methodName)
+            .addStatement("$T<$T> annotations = new $T<>()",
+                Set.class, Annotation.class, LinkedHashSet.class)
             .beginControlFlow("for ($T annotation : method.getAnnotations())", Annotation.class)
-            .beginControlFlow("if (annotation.annotationType().isAnnotationPresent($T.class))", JsonQualifier.class)
+            .beginControlFlow("if (annotation.annotationType().isAnnotationPresent($T.class))",
+                JsonQualifier.class)
             .addStatement("annotations.add(annotation)")
             .endControlFlow()
             .endControlFlow()
@@ -347,7 +349,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     readMethod.addStatement("$N.beginObject()", reader);
 
     // add the properties
-    Map<Property, FieldSpec> fields = new LinkedHashMap<Property, FieldSpec>(adapters.size());
+    Map<Property, FieldSpec> fields = new LinkedHashMap<>(adapters.size());
     for (Property prop : adapters.keySet()) {
       FieldSpec field = FieldSpec.builder(prop.type, nameAllocator.newName(prop.humanName)).build();
       fields.put(prop, field);
@@ -431,7 +433,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       block.add("$T.newParameterizedType($T.class", Types.class, pType.rawType);
       for (TypeName typeArg : pType.typeArguments) {
         if (typeArg instanceof ParameterizedTypeName) {
-          block.add(", $L", makeType((ParameterizedTypeName) typeArg));
+          block.add(", $L", makeType(typeArg));
         } else {
           block.add(", $T.class", typeArg);
         }
