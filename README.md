@@ -62,9 +62,9 @@ Add a Gradle dependency:
 ```groovy
 apt 'com.ryanharter.auto.value:auto-value-moshi:0.4.1'
 
-// if you use the @MoshiAdapterFactory, you'll need to add the dependency
-// to the provided configuration as well
-provided 'com.ryanharter.auto.value:auto-value-moshi:0.4.1'
+// if you use the @MoshiAdapterFactory annotation, you'll need to add the 'annotations' artifact 
+// as a provided dependency:
+provided 'com.ryanharter.auto.value:auto-value-moshi-annotations:0.4.1'
 ```
 
 (Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)

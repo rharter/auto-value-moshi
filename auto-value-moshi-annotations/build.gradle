@@ -1,0 +1,11 @@
+apply plugin: 'java'
+apply plugin: 'maven-publish'
+
+sourceCompatibility = versions.java
+targetCompatibility = versions.java
+
+dependencies {
+  compile libraries.moshi
+}
+
+apply from: rootProject.file('gradle/gradle-mvn-push.gradle')
