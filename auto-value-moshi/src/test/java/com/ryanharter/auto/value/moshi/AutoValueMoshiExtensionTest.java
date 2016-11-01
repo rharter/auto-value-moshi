@@ -3,9 +3,7 @@ package com.ryanharter.auto.value.moshi;
 import com.google.auto.value.processor.AutoValueProcessor;
 import com.google.common.collect.ImmutableSet;
 import com.google.testing.compile.JavaFileObjects;
-import com.squareup.javapoet.ClassName;
 import java.util.Arrays;
-import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import org.junit.Before;
 import org.junit.Test;
@@ -20,19 +18,20 @@ public class AutoValueMoshiExtensionTest {
   private JavaFileObject nullable;
 
   @Before public void setup() {
-    serializedName = JavaFileObjects.forSourceString("com.ryanharter.auto.value.moshi.SerializedName", ""
-        + "package com.ryanharter.auto.value.moshi;\n"
-        + "import java.lang.annotation.Retention;\n"
-        + "import java.lang.annotation.Target;\n"
-        + "import static java.lang.annotation.ElementType.METHOD;\n"
-        + "import static java.lang.annotation.ElementType.PARAMETER;\n"
-        + "import static java.lang.annotation.ElementType.FIELD;\n"
-        + "import static java.lang.annotation.RetentionPolicy.SOURCE;\n"
-        + "@Retention(SOURCE)\n"
-        + "@Target({METHOD, PARAMETER, FIELD})\n"
-        + "public @interface SerializedName {\n"
-        + "  String value();\n"
-        + "}");
+    serializedName =
+        JavaFileObjects.forSourceString("com.ryanharter.auto.value.moshi.SerializedName", ""
+            + "package com.ryanharter.auto.value.moshi;\n"
+            + "import java.lang.annotation.Retention;\n"
+            + "import java.lang.annotation.Target;\n"
+            + "import static java.lang.annotation.ElementType.METHOD;\n"
+            + "import static java.lang.annotation.ElementType.PARAMETER;\n"
+            + "import static java.lang.annotation.ElementType.FIELD;\n"
+            + "import static java.lang.annotation.RetentionPolicy.SOURCE;\n"
+            + "@Retention(SOURCE)\n"
+            + "@Target({METHOD, PARAMETER, FIELD})\n"
+            + "public @interface SerializedName {\n"
+            + "  String value();\n"
+            + "}");
 
     nullable = JavaFileObjects.forSourceString("com.ryanharter.auto.value.moshi.Nullable", ""
         + "package com.ryanharter.auto.value.moshi;\n"
@@ -99,7 +98,8 @@ public class AutoValueMoshiExtensionTest {
         + "import java.util.Set;\n"
         + "\n"
         + "final class AutoValue_Test extends $AutoValue_Test {\n"
-        + "  AutoValue_Test(String a, int[] b, int c, String d, Map<String, Number> e, Set<String> f, Map<String, Set<String>> g, String i) {\n"
+        + "  AutoValue_Test(String a, int[] b, int c, String d, Map<String, Number> e, "
+        + "     Set<String> f, Map<String, Set<String>> g, String i) {\n"
         + "    super(a, b, c, d, e, f, g, i);\n"
         + "  }\n"
         + "\n"
@@ -123,9 +123,12 @@ public class AutoValueMoshiExtensionTest {
         + "      this.bAdapter = moshi.adapter(int[].class);\n"
         + "      this.cAdapter = moshi.adapter(int.class);\n"
         + "      this.dAdapter = moshi.adapter(String.class);\n"
-        + "      this.eAdapter = moshi.adapter(Types.newParameterizedType(Map.class, String.class, Number.class));\n"
-        + "      this.fAdapter = moshi.adapter(Types.newParameterizedType(Set.class, String.class));\n"
-        + "      this.gAdapter = moshi.adapter(Types.newParameterizedType(Map.class, String.class, Types.newParameterizedType(Set.class, String.class)));\n"
+        + "      this.eAdapter = moshi.adapter(Types.newParameterizedType(Map.class, String.class, "
+        + "         Number.class));\n"
+        + "      this.fAdapter = moshi.adapter(Types.newParameterizedType(Set.class, "
+        + "         String.class));\n"
+        + "      this.gAdapter = moshi.adapter(Types.newParameterizedType(Map.class, String.class, "
+        + "         Types.newParameterizedType(Set.class, String.class)));\n"
         + "      this.iAdapter = moshi.adapter(String.class);\n"
         + "    }\n"
         + "  \n"

@@ -94,8 +94,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     }
   }
 
-  @Override
-  public boolean applicable(Context context) {
+  @Override public boolean applicable(Context context) {
     // check that the class contains a public static method returning a JsonAdapter
     TypeElement type = context.autoValueClass();
     ParameterizedTypeName jsonAdapterType = ParameterizedTypeName.get(
@@ -138,8 +137,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     return false;
   }
 
-  @Override
-  public String generateClass(Context context, String className, String classToExtend,
+  @Override public String generateClass(Context context, String className, String classToExtend,
       boolean isFinal) {
     List<Property> properties = readProperties(context.properties());
 
