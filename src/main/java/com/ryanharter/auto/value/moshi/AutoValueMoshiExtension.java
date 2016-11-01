@@ -162,8 +162,9 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
 
     if (shouldCreateGenerics) {
       genericTypeNames = new TypeVariableName[typeParams.size()];
-      for (int i = 0; i < typeParams.size(); i++)
+      for (int i = 0; i < typeParams.size(); i++) {
         genericTypeNames[i] = TypeVariableName.get(typeParams.get(i));
+      }
 
       superclass = ParameterizedTypeName.get(ClassName.get(context.packageName(), classToExtend), (TypeName[]) genericTypeNames);
       autoValueClassName = ParameterizedTypeName.get(autoValueClass, (TypeName[]) genericTypeNames);

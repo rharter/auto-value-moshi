@@ -146,7 +146,7 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
               .addStatement("$T rawType = (($T) $N).getRawType()", Type.class, ParameterizedType.class, type);
         }
 
-        addControlFlowGenric(generics, elementTypeName, moshi, type, element, numGenerics);
+        addControlFlowGeneric(generics, elementTypeName, moshi, type, element, numGenerics);
         numGenerics++;
       } else {
         if (classes == null) {
@@ -179,7 +179,7 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
     return factory.build();
   }
 
-  private void addControlFlowGenric(CodeBlock.Builder block, TypeName elementTypeName,
+  private void addControlFlowGeneric(CodeBlock.Builder block, TypeName elementTypeName,
       ParameterSpec moshi, ParameterSpec type, Element element, int numGenerics) {
     TypeName typeName = ((ParameterizedTypeName) elementTypeName).rawType;
     CodeBlock typeBlock = CodeBlock.of("rawType");
