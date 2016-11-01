@@ -1,12 +1,21 @@
 <?xml version="1.0"?>
 <!DOCTYPE module PUBLIC
-    "-//Puppy Crawl//DTD Check Configuration 1.2//EN"
-    "http://www.puppycrawl.com/dtds/configuration_1_2.dtd">
+    "-//Puppy Crawl//DTD Check Configuration 1.3//EN"
+    "http://www.puppycrawl.com/dtds/configuration_1_3.dtd">
 
 <module name="Checker">
+  <property name="severity" value="error"/>
+
   <module name="NewlineAtEndOfFile"/>
   <module name="FileLength"/>
   <module name="FileTabCharacter"/>
+
+  <!-- Unnecessary empty lines -->
+  <module name="RegexpMultiline">
+    <property name="format" value="\r?\n[\t ]*\r?\n[\t ]*\r?\n"/>
+    <property name="fileExtensions" value="java,xml,properties"/>
+    <property name="message" value="Unnecessary consecutive lines"/>
+  </module>
 
   <!-- Trailing spaces -->
   <module name="RegexpSingleline">
@@ -112,7 +121,7 @@
     <!--module name="InnerAssignment"/-->
     <!--module name="MagicNumber"/-->
     <!--module name="MissingSwitchDefault"/-->
-    <module name="RedundantThrows"/>
+    <!--<module name="RedundantThrows"/>-->
     <module name="SimplifyBooleanExpression"/>
     <module name="SimplifyBooleanReturn"/>
 

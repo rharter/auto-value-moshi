@@ -23,7 +23,7 @@ subprojects { project ->
   apply plugin: 'checkstyle'
 
   checkstyle {
-    toolVersion '6.0'
+    toolVersion '7.2'
     configFile rootProject.file('checkstyle.xml')
   }
 
