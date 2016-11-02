@@ -1,20 +1,38 @@
 buildscript {
-    repositories {
-        mavenCentral()
-        maven {
-            url 'https://plugins.gradle.org/m2/'
-        }
+  repositories {
+    mavenCentral()
+    maven {
+      url 'https://plugins.gradle.org/m2/'
     }
+  }
 
-    dependencies {
-        classpath 'net.ltgt.gradle:gradle-apt-plugin:0.9'
-    }
+  dependencies {
+    classpath 'net.ltgt.gradle:gradle-apt-plugin:0.9'
+  }
 }
 
 allprojects {
-    repositories {
-        mavenCentral()
-    }
+  repositories {
+    mavenCentral()
+  }
 
-    apply from: rootProject.file('dependencies.gradle')
+  apply from: rootProject.file('dependencies.gradle')
+}
+
+subprojects { project ->
+  apply plugin: 'checkstyle'
+
+  checkstyle {
+    toolVersion '7.2'
+    configFile rootProject.file('checkstyle.xml')
+  }
+
+  afterEvaluate {
+    tasks.withType(Checkstyle) {
+      configProperties = [
+              'proj.module.dir'      : projectDir.absolutePath,
+              'checkstyle.cache.file': './build/cache/checkstyle-cache'
+      ]
+    }
+  }
 }

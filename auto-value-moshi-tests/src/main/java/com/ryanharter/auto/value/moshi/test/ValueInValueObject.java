@@ -11,7 +11,7 @@ import com.squareup.moshi.Moshi;
 
   public abstract Value value();
 
-  @AutoValue public static abstract class Value {
+  @AutoValue public abstract static class Value {
     public static JsonAdapter<Value> jsonAdapter(Moshi moshi) {
       return AutoValue_ValueInValueObject_Value.jsonAdapter(moshi);
     }

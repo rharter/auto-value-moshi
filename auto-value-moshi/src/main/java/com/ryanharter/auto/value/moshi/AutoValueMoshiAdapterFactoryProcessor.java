@@ -31,7 +31,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.NoType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
@@ -44,22 +43,22 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.tools.Diagnostic.Kind.ERROR;
 
 /**
- * Created by rharter on 4/27/16.
+ * Annotation Processor responsible for the generation of the {@link JsonAdapter.Factory} class
+ * annotated with {@link MoshiAdapterFactory}.
+ *
+ * @author rharter
  */
 @AutoService(Processor.class)
 public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
-
   private final AutoValueMoshiExtension extension = new AutoValueMoshiExtension();
   private Types typeUtils;
   private Elements elementUtils;
 
-  @Override
-  public Set<String> getSupportedAnnotationTypes() {
+  @Override public Set<String> getSupportedAnnotationTypes() {
     return ImmutableSet.of(AutoValue.class.getName(), MoshiAdapterFactory.class.getName());
   }
 
-  @Override
-  public SourceVersion getSupportedSourceVersion() {
+  @Override public SourceVersion getSupportedSourceVersion() {
     return SourceVersion.latestSupported();
   }
 
@@ -69,9 +68,9 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
     elementUtils = processingEnv.getElementUtils();
   }
 
-  @Override
-  public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-    List<Element> elements = new LinkedList<Element>();
+  @Override public boolean process(Set<? extends TypeElement> annotations,
+      RoundEnvironment roundEnv) {
+    List<Element> elements = new LinkedList<>();
     for (Element element : roundEnv.getElementsAnnotatedWith(AutoValue.class)) {
       AutoValueExtension.Context context = new LimitedContext(processingEnv, (TypeElement) element);
       if (extension.applicable(context)) {
@@ -80,12 +79,14 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
     }
 
     if (!elements.isEmpty()) {
-      Set<? extends Element> adaptorFactories = roundEnv.getElementsAnnotatedWith(MoshiAdapterFactory.class);
+      Set<? extends Element> adaptorFactories =
+          roundEnv.getElementsAnnotatedWith(MoshiAdapterFactory.class);
       for (Element element : adaptorFactories) {
         if (!element.getModifiers().contains(ABSTRACT)) {
           error(element, "Must be abstract!");
         }
-        TypeElement type = (TypeElement) element; // Safe to cast because this is only applicable on types anyway
+        TypeElement type =
+            (TypeElement) element; // Safe to cast because this is only applicable on types anyway
         if (!implementsJsonAdapterFactory(type)) {
           error(element, "Must implement JsonAdapter.Factory!");
         }
@@ -96,7 +97,9 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
         try {
           file.writeTo(processingEnv.getFiler());
         } catch (IOException e) {
-          processingEnv.getMessager().printMessage(ERROR, "Failed to write TypeAdapterFactory: " + e.getLocalizedMessage());
+          processingEnv.getMessager()
+              .printMessage(ERROR,
+                  "Failed to write TypeAdapterFactory: " + e.getLocalizedMessage());
         }
       }
     }
@@ -106,14 +109,16 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
 
   private TypeSpec createJsonAdapterFactory(List<Element> elements, String packageName,
       String adapterName) {
-    TypeSpec.Builder factory = TypeSpec.classBuilder(ClassName.get(packageName, "AutoValueMoshi_" + adapterName));
+    TypeSpec.Builder factory =
+        TypeSpec.classBuilder(ClassName.get(packageName, "AutoValueMoshi_" + adapterName));
     factory.addModifiers(PUBLIC, FINAL);
     factory.superclass(ClassName.get(packageName, adapterName));
 
     ParameterSpec type = ParameterSpec.builder(Type.class, "type").build();
     WildcardTypeName extendsAnnotation = WildcardTypeName.subtypeOf(Annotation.class);
     ParameterSpec annotations = ParameterSpec
-        .builder(ParameterizedTypeName.get(ClassName.get(Set.class), extendsAnnotation), "annotations")
+        .builder(
+            ParameterizedTypeName.get(ClassName.get(Set.class), extendsAnnotation), "annotations")
         .build();
     ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
     ParameterizedTypeName result = ParameterizedTypeName.get(ClassName.get(JsonAdapter.class),
@@ -135,7 +140,8 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
         create.nextControlFlow("else if ($N.equals($T.class))", type, element);
       }
       ExecutableElement jsonAdapterMethod = getJsonAdapterMethod(element);
-      create.addStatement("return $T." + jsonAdapterMethod.getSimpleName() + "($N)", element, moshi);
+      create.addStatement("return $T." + jsonAdapterMethod.getSimpleName() + "($N)", element,
+          moshi);
     }
     create.nextControlFlow("else");
     create.addStatement("return null");
@@ -228,11 +234,10 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
   }
 
   private static class LimitedContext implements AutoValueExtension.Context {
-
     private final ProcessingEnvironment processingEnvironment;
     private final TypeElement autoValueClass;
 
-    private LimitedContext(ProcessingEnvironment processingEnvironment, TypeElement autoValueClass) {
+    LimitedContext(ProcessingEnvironment processingEnvironment, TypeElement autoValueClass) {
       this.processingEnvironment = processingEnvironment;
       this.autoValueClass = autoValueClass;
     }

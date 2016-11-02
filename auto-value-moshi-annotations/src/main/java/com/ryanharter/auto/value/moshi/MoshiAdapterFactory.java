@@ -1,6 +1,6 @@
 package com.ryanharter.auto.value.moshi;
 
-import com.squareup.moshi.JsonAdapter;
+import com.squareup.moshi.JsonAdapter.Factory;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
@@ -9,7 +9,7 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 /**
  * Annotation to indicate that a given class should generate a concrete implementation of a
- * {@link JsonAdapter.Factory} that handles all the publicly denoted adapter implementations of this
+ * {@link Factory} that handles all the publicly denoted adapter implementations of this
  * project.
  * <p>
  * <code><pre>
