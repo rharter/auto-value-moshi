@@ -167,14 +167,17 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         genericTypeNames[i] = TypeVariableName.get(typeParams.get(i));
       }
 
-      superclass = ParameterizedTypeName.get(ClassName.get(context.packageName(), classToExtend), (TypeName[]) genericTypeNames);
+      superclass = ParameterizedTypeName.get(ClassName.get(context.packageName(), classToExtend),
+          (TypeName[]) genericTypeNames);
       autoValueClassName = ParameterizedTypeName.get(autoValueClass, (TypeName[]) genericTypeNames);
     } else {
       superclass = TypeVariableName.get(classToExtend);
     }
 
-    TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClassName, genericTypeNames, properties);
-    MethodSpec jsonAdapterMethod = createJsonAdapterMethod(autoValueClassName, genericTypeNames, typeAdapter);
+    TypeSpec typeAdapter =
+        createTypeAdapter(classNameClass, autoValueClassName, genericTypeNames, properties);
+    MethodSpec jsonAdapterMethod =
+        createJsonAdapterMethod(autoValueClassName, genericTypeNames, typeAdapter);
 
     TypeSpec.Builder subclass = TypeSpec.classBuilder(className)
         .superclass(superclass)
@@ -279,7 +282,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         .addModifiers(PUBLIC)
         .addParameter(moshi);
 
-    if (genericTypeNames != null ) {
+    if (genericTypeNames != null) {
       type = ParameterSpec.builder(Type[].class, "types").build();
       constructor.addParameter(type);
     }
@@ -304,7 +307,8 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         constructor.addStatement("this.$N = $N.adapter($T.newParameterizedType($T.class, $N[$L]))",
                 field, moshi, Types.class, typeName.rawType, type,
                 getTypeIndexInArray(genericTypeNames, typeName.typeArguments.get(0)));
-      } else if (genericTypeNames != null && getTypeIndexInArray(genericTypeNames, prop.type) >= 0) {
+      } else if (genericTypeNames != null
+          && getTypeIndexInArray(genericTypeNames, prop.type) >= 0) {
         constructor.addStatement("this.$N = $N.adapter($N[$L])", field, moshi, type,
                 getTypeIndexInArray(genericTypeNames,  prop.type));
       } else {

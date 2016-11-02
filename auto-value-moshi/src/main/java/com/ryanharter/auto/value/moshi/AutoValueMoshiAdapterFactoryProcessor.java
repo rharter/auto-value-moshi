@@ -149,7 +149,8 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
         if (generics == null) {
           generics = CodeBlock.builder()
               .beginControlFlow("if ($N instanceof $T)", type, ParameterizedType.class)
-              .addStatement("$T rawType = (($T) $N).getRawType()", Type.class, ParameterizedType.class, type);
+              .addStatement("$T rawType = (($T) $N).getRawType()", Type.class,
+                  ParameterizedType.class, type);
         }
 
         addControlFlowGeneric(generics, elementTypeName, moshi, type, element, numGenerics);
