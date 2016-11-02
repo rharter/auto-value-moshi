@@ -1,2 +1,6 @@
-rootProject.name = 'auto-value-moshi'
+include ':auto-value-moshi'
+include ':auto-value-moshi-tests'
+include ':auto-value-moshi-annotations'
+
+rootProject.name = 'auto-value-moshi-root'
 
