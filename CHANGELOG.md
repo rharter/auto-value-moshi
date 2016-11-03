@@ -1,5 +1,14 @@
 # Change Log
 
+## Version 0.4.2 (2016-11-03)
+
+#### Supports: AutoValue 1.3
+
+* Generated factory ignores annotated types.
+* Reduces the number of JsonAdapter ClassName lookups.
+* Moves `@MoshiAdapterFactory` into a separate artifact.
+* Adds support for generics.
+
 ## Version 0.4.1 (2016-10-17)
 
 #### Supports: AutoValue 1.3
