@@ -5,6 +5,7 @@ import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.AutoValueExtension;
 import com.google.common.collect.ImmutableSet;
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterSpec;
@@ -14,8 +15,10 @@ import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.WildcardTypeName;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
+
 import java.io.IOException;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.LinkedList;
 import java.util.List;
@@ -129,26 +132,82 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
         .addParameters(ImmutableSet.of(type, annotations, moshi))
         .returns(result);
 
+    CodeBlock.Builder classes = null;
+    CodeBlock.Builder generics = null;
+
+    int numGenerics = 0;
+    int numClasses = 0;
+
     // Avoid providing an adapter for an annotated type.
     create.addStatement("if (!$N.isEmpty()) return null", annotations);
 
     for (int i = 0; i < elements.size(); i++) {
       Element element = elements.get(i);
-      if (i == 0) {
-        create.beginControlFlow("if ($N.equals($T.class))", type, element);
-      } else {
-        create.nextControlFlow("else if ($N.equals($T.class))", type, element);
-      }
-      ExecutableElement jsonAdapterMethod = getJsonAdapterMethod(element);
-      create.addStatement("return $T." + jsonAdapterMethod.getSimpleName() + "($N)", element,
-          moshi);
-    }
-    create.nextControlFlow("else");
-    create.addStatement("return null");
-    create.endControlFlow();
+      TypeName elementTypeName = TypeName.get(element.asType());
 
+      if (elementTypeName instanceof ParameterizedTypeName) {
+        if (generics == null) {
+          generics = CodeBlock.builder()
+              .beginControlFlow("if ($N instanceof $T)", type, ParameterizedType.class)
+              .addStatement("$T rawType = (($T) $N).getRawType()", Type.class,
+                  ParameterizedType.class, type);
+        }
+
+        addControlFlowGeneric(generics, elementTypeName, moshi, type, element, numGenerics);
+        numGenerics++;
+      } else {
+        if (classes == null) {
+          classes = CodeBlock.builder();
+        }
+
+        addControlFlow(classes, CodeBlock.of("$N", type), elementTypeName, numClasses);
+        numClasses++;
+
+        ExecutableElement jsonAdapterMethod = getJsonAdapterMethod(element);
+        classes.addStatement("return $T.$L($N)", element, jsonAdapterMethod.getSimpleName(), moshi);
+      }
+
+    }
+
+    if (generics != null) {
+      generics.endControlFlow();
+      generics.addStatement("return null");
+      generics.endControlFlow();
+      create.addCode(generics.build());
+    }
+
+    if (classes != null) {
+      classes.endControlFlow();
+      create.addCode(classes.build());
+    }
+
+    create.addStatement("return null");
     factory.addMethod(create.build());
     return factory.build();
+  }
+
+  private void addControlFlowGeneric(CodeBlock.Builder block, TypeName elementTypeName,
+      ParameterSpec moshi, ParameterSpec type, Element element, int numGenerics) {
+    TypeName typeName = ((ParameterizedTypeName) elementTypeName).rawType;
+    CodeBlock typeBlock = CodeBlock.of("rawType");
+
+    addControlFlow(block, typeBlock, typeName, numGenerics);
+
+    ExecutableElement jsonAdapterMethod = getJsonAdapterMethod(element);
+    if (jsonAdapterMethod.getParameters().size() > 1) {
+      block.addStatement("return $L.$L($N, (($T) $N).getActualTypeArguments())",
+          element.getSimpleName(), jsonAdapterMethod.getSimpleName(), moshi,
+          ParameterizedType.class, type);
+    }
+  }
+
+  private void addControlFlow(CodeBlock.Builder block, CodeBlock typeBlock,
+      TypeName elementTypeName, int pos) {
+    if (pos == 0) {
+      block.beginControlFlow("if ($L.equals($T.class))", typeBlock, elementTypeName);
+    } else {
+      block.nextControlFlow("else if ($L.equals($T.class))", typeBlock, elementTypeName);
+    }
   }
 
   private ExecutableElement getJsonAdapterMethod(Element element) {
@@ -159,7 +218,7 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
           && method.getModifiers().contains(Modifier.PUBLIC)) {
         TypeMirror rType = method.getReturnType();
         TypeName returnType = TypeName.get(rType);
-        if (returnType.equals(jsonAdapterType)) {
+        if (returnType.equals(jsonAdapterType) || returnType instanceof ParameterizedTypeName) {
           return method;
         }
       }

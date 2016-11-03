@@ -67,13 +67,11 @@ public class AutoValueMoshiAdapterFactoryProcessorTest {
             + "      return Foo.jsonAdapter(moshi);\n"
             + "    } else if (type.equals(Bar.class)) {\n"
             + "      return Bar.jsonAdapter(moshi);\n"
-            + "    } else {\n"
-            + "      return null;\n"
             + "    }\n"
+            + "    return null;\n"
             + "  }\n"
             + "}");
-    assertAbout(javaSources())
-        .that(ImmutableSet.of(source1, source2, source3))
+    assertAbout(javaSources()).that(ImmutableSet.of(source1, source2, source3))
         .processedWith(new AutoValueMoshiAdapterFactoryProcessor())
         .compilesWithoutError()
         .and()
@@ -121,13 +119,11 @@ public class AutoValueMoshiAdapterFactoryProcessorTest {
             + "    if (!annotations.isEmpty()) return null;\n"
             + "    if (type.equals(Foo.class)) {\n"
             + "      return Foo.jsonAdapter(moshi);\n"
-            + "    } else {\n"
-            + "      return null;\n"
             + "    }\n"
+            + "    return null;\n"
             + "  }\n"
             + "}");
-    assertAbout(javaSources())
-        .that(ImmutableSet.of(source1, source3))
+    assertAbout(javaSources()).that(ImmutableSet.of(source1, source3))
         .processedWith(new AutoValueMoshiAdapterFactoryProcessor())
         .compilesWithoutError()
         .and()
@@ -158,8 +154,7 @@ public class AutoValueMoshiAdapterFactoryProcessorTest {
         + "    return new AutoValueMoshi_MyAdapterFactory();\n"
         + "  }\n"
         + "}");
-    assertAbout(javaSources())
-        .that(ImmutableSet.of(source1, source2))
+    assertAbout(javaSources()).that(ImmutableSet.of(source1, source2))
         .processedWith(new AutoValueMoshiAdapterFactoryProcessor())
         .failsToCompile()
         .withErrorContaining("Must be abstract!");
@@ -189,8 +184,7 @@ public class AutoValueMoshiAdapterFactoryProcessorTest {
         + "    return new AutoValueMoshi_MyAdapterFactory();\n"
         + "  }\n"
         + "}");
-    assertAbout(javaSources())
-        .that(ImmutableSet.of(source1, source2))
+    assertAbout(javaSources()).that(ImmutableSet.of(source1, source2))
         .processedWith(new AutoValueMoshiAdapterFactoryProcessor())
         .failsToCompile()
         .withErrorContaining("Must implement JsonAdapter.Factory!");
@@ -255,9 +249,8 @@ public class AutoValueMoshiAdapterFactoryProcessorTest {
             + "      return Foo.jsonAdapter(moshi);\n"
             + "    } else if (type.equals(Bar.class)) {\n"
             + "      return Bar.jsonAdapter(moshi);\n"
-            + "    } else {\n"
-            + "      return null;\n"
             + "    }\n"
+            + "    return null;\n"
             + "  }\n"
             + "}");
     assertAbout(javaSources()).that(ImmutableSet.of(source1, source2, source3, source4))
@@ -331,12 +324,73 @@ public class AutoValueMoshiAdapterFactoryProcessorTest {
             + "      return Foo.jsonAdapter(moshi);\n"
             + "    } else if (type.equals(Bar.class)) {\n"
             + "      return Bar.jsonAdapter(moshi);\n"
-            + "    } else {\n"
-            + "      return null;\n"
             + "    }\n"
+            + "    return null;\n"
             + "  }\n"
             + "}");
     assertAbout(javaSources()).that(ImmutableSet.of(source1, source2, source3, source4, source5))
+        .processedWith(new AutoValueMoshiAdapterFactoryProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected);
+  }
+
+  @Test public void generatesJsonAdapterFactoryGenerics() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import java.lang.reflect.Type;\n"
+        + "import java.util.List;\n"
+        + "@AutoValue public abstract class Foo<V, T> {\n"
+        + "  public static <V, T>JsonAdapter<Foo<V, T>> jsonAdapter(Moshi moshi, "
+        + "      Type[] types) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        + "  public abstract List<V> getItems();\n"
+        + "  public abstract List<T> getHeaders();\n"
+        + "}");
+    JavaFileObject source3 = JavaFileObjects.forSourceString("test.MyAdapterFactory", ""
+        + "package test.factory;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import com.ryanharter.auto.value.moshi.MoshiAdapterFactory;\n"
+        + "@MoshiAdapterFactory\n"
+        + "public abstract class MyAdapterFactory implements JsonAdapter.Factory {\n"
+        + "  public static JsonAdapter.Factory create() {\n"
+        + "    return new AutoValueMoshi_MyAdapterFactory();\n"
+        + "  }\n"
+        + "}");
+    JavaFileObject expected =
+        JavaFileObjects.forSourceString("test.AutoValueMoshi_MyAdapterFactory", ""
+            + "package test.factory;\n"
+            + "\n"
+            + "import com.squareup.moshi.JsonAdapter;\n"
+            + "import com.squareup.moshi.Moshi;\n"
+            + "import java.lang.Override;\n"
+            + "import java.lang.annotation.Annotation;\n"
+            + "import java.lang.reflect.ParameterizedType;\n"
+            + "import java.lang.reflect.Type;\n"
+            + "import java.util.Set;\n"
+            + "import test.Foo;\n"
+            + "\n"
+            + "public final class AutoValueMoshi_MyAdapterFactory extends MyAdapterFactory {\n"
+            + "  @Override public JsonAdapter<?> create(Type type, "
+            + "     Set<? extends Annotation> annotations, Moshi moshi) {\n"
+            + "    if (!annotations.isEmpty()) return null;\n"
+            + "    if (type instanceof ParameterizedType) {\n"
+            + "      Type rawType = ((ParameterizedType) type).getRawType();\n"
+            + "      if (rawType.equals(Foo.class)) {\n"
+            + "        return Foo.jsonAdapter(moshi, "
+            + "          ((ParameterizedType) type).getActualTypeArguments());\n"
+            + "      }\n"
+            + "      return null;\n"
+            + "    }\n"
+            + "    return null;\n"
+            + "  }\n"
+            + "}");
+    assertAbout(javaSources()).that(ImmutableSet.of(source1, source3))
         .processedWith(new AutoValueMoshiAdapterFactoryProcessor())
         .compilesWithoutError()
         .and()

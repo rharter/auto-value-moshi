@@ -26,6 +26,9 @@ import com.squareup.moshi.Types;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.lang.reflect.Type;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -39,6 +42,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
@@ -125,10 +129,14 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     Messager messager = context.processingEnvironment().getMessager();
     if (returnedJsonAdapter instanceof ParameterizedTypeName) {
       ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnedJsonAdapter;
-      TypeName argument = paramReturnType.typeArguments.get(0);
-      messager.printMessage(Diagnostic.Kind.WARNING,
-          String.format("Found public static method returning JsonAdapter<%s> on %s class. "
-              + "Skipping MoshiJsonAdapter generation.", argument, type));
+      if (paramReturnType.typeArguments.get(0) instanceof ParameterizedTypeName) {
+        return true;
+      } else {
+        TypeName argument = paramReturnType.typeArguments.get(0);
+        messager.printMessage(Diagnostic.Kind.WARNING,
+            String.format("Found public static method returning JsonAdapter<%s> on %s class. "
+                + "Skipping MoshiJsonAdapter generation.", argument, type));
+      }
     } else {
       messager.printMessage(Diagnostic.Kind.WARNING, "Found public static method returning "
           + "JsonAdapter with no type arguments, skipping MoshiJsonAdapter generation.");
@@ -143,17 +151,43 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
 
     Map<String, TypeName> types = convertPropertiesToTypes(context.properties());
 
+    List<? extends TypeParameterElement> typeParams = context.autoValueClass().getTypeParameters();
+    boolean shouldCreateGenerics = typeParams != null && typeParams.size() > 0;
+
     ClassName classNameClass = ClassName.get(context.packageName(), className);
     ClassName autoValueClass = ClassName.get(context.autoValueClass());
+    TypeName autoValueClassName = autoValueClass;
+    TypeVariableName[] genericTypeNames = null;
 
-    TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, properties);
-    MethodSpec jsonAdapterMethod = createJsonAdapterMethod(autoValueClass, typeAdapter);
+    TypeName superclass;
+
+    if (shouldCreateGenerics) {
+      genericTypeNames = new TypeVariableName[typeParams.size()];
+      for (int i = 0; i < typeParams.size(); i++) {
+        genericTypeNames[i] = TypeVariableName.get(typeParams.get(i));
+      }
+
+      superclass = ParameterizedTypeName.get(ClassName.get(context.packageName(), classToExtend),
+          (TypeName[]) genericTypeNames);
+      autoValueClassName = ParameterizedTypeName.get(autoValueClass, (TypeName[]) genericTypeNames);
+    } else {
+      superclass = TypeVariableName.get(classToExtend);
+    }
+
+    TypeSpec typeAdapter =
+        createTypeAdapter(classNameClass, autoValueClassName, genericTypeNames, properties);
+    MethodSpec jsonAdapterMethod =
+        createJsonAdapterMethod(autoValueClassName, genericTypeNames, typeAdapter);
 
     TypeSpec.Builder subclass = TypeSpec.classBuilder(className)
-        .superclass(TypeVariableName.get(classToExtend))
+        .superclass(superclass)
         .addType(typeAdapter)
         .addMethod(generateConstructor(types))
         .addMethod(jsonAdapterMethod);
+
+    if (shouldCreateGenerics) {
+      subclass.addTypeVariables(Arrays.asList(genericTypeNames));
+    }
 
     if (isFinal) {
       subclass.addModifiers(FINAL);
@@ -215,26 +249,43 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     return types;
   }
 
-  public MethodSpec createJsonAdapterMethod(TypeName autoValueClass, TypeSpec jsonAdapter) {
+  public MethodSpec createJsonAdapterMethod(TypeName autoValueClass,
+      TypeVariableName[] genericTypeNames, TypeSpec jsonAdapter) {
     ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
-    return MethodSpec.methodBuilder("jsonAdapter")
+    MethodSpec.Builder builder = MethodSpec.methodBuilder("jsonAdapter")
         .addModifiers(PUBLIC, STATIC)
         .addParameter(moshi)
-        .returns(ParameterizedTypeName.get(ADAPTER_CLASS_NAME, autoValueClass))
-        .addStatement("return new $N($N)", jsonAdapter, moshi)
-        .build();
+        .returns(ParameterizedTypeName.get(ADAPTER_CLASS_NAME, autoValueClass));
+
+    if (genericTypeNames != null) {
+      ParameterSpec type = ParameterSpec.builder(Type[].class, "types").build();
+      builder.addParameter(type)
+          .addTypeVariables(Arrays.asList(genericTypeNames))
+          .addStatement("return new $N($N, $N)", jsonAdapter, moshi, type);
+    } else {
+      builder.addStatement("return new $N($N)", jsonAdapter, moshi);
+    }
+
+    return builder.build();
   }
 
-  public TypeSpec createTypeAdapter(ClassName className, ClassName autoValueClassName,
-      List<Property> properties) {
+  public TypeSpec createTypeAdapter(ClassName className, TypeName autoValueClassName,
+      TypeVariableName[] genericTypeNames, List<Property> properties) {
     TypeName typeAdapterClass = ParameterizedTypeName.get(ADAPTER_CLASS_NAME, autoValueClassName);
 
     ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
 
     ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
+    ParameterSpec type = null;
+
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder()
         .addModifiers(PUBLIC)
         .addParameter(moshi);
+
+    if (genericTypeNames != null) {
+      type = ParameterSpec.builder(Type[].class, "types").build();
+      constructor.addParameter(type);
+    }
 
     boolean needsAdapterMethod = false;
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
@@ -251,6 +302,15 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       }
       if (usesJsonQualifier) {
         constructor.addStatement("this.$N = adapter($N, \"$L\")", field, moshi, prop.methodName);
+      } else if (genericTypeNames != null && prop.type instanceof ParameterizedTypeName) {
+        ParameterizedTypeName typeName = ((ParameterizedTypeName) prop.type);
+        constructor.addStatement("this.$N = $N.adapter($T.newParameterizedType($T.class, $N[$L]))",
+                field, moshi, Types.class, typeName.rawType, type,
+                getTypeIndexInArray(genericTypeNames, typeName.typeArguments.get(0)));
+      } else if (genericTypeNames != null
+          && getTypeIndexInArray(genericTypeNames, prop.type) >= 0) {
+        constructor.addStatement("this.$N = $N.adapter($N[$L])", field, moshi, type,
+                getTypeIndexInArray(genericTypeNames,  prop.type));
       } else {
         constructor.addStatement("this.$N = $N.adapter($L)", field, moshi, makeType(prop.type));
       }
@@ -264,6 +324,10 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         .addMethod(createReadMethod(className, autoValueClassName, adapters))
         .addMethod(createWriteMethod(autoValueClassName, adapters));
 
+    if (genericTypeNames != null) {
+      classBuilder.addTypeVariables(Arrays.asList(genericTypeNames));
+    }
+
     if (needsAdapterMethod) {
       classBuilder.addMethod(createAdapterMethod(autoValueClassName));
     }
@@ -271,7 +335,16 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     return classBuilder.build();
   }
 
-  private MethodSpec createAdapterMethod(ClassName autoValueClassName) {
+  private int getTypeIndexInArray(TypeVariableName[] array, TypeName typeName) {
+    return Arrays.binarySearch(array, typeName, new Comparator<TypeName>() {
+      @Override
+      public int compare(TypeName typeName, TypeName t1) {
+        return typeName.equals(t1) ? 0 : -1;
+      }
+    });
+  }
+
+  private MethodSpec createAdapterMethod(TypeName autoValueClassName) {
     ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
     ParameterSpec methodName = ParameterSpec.builder(String.class, "methodName").build();
     return MethodSpec.methodBuilder("adapter")
@@ -299,7 +372,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         .build();
   }
 
-  public MethodSpec createWriteMethod(ClassName autoValueClassName,
+  public MethodSpec createWriteMethod(TypeName autoValueClassName,
       ImmutableMap<Property, FieldSpec> adapters) {
     ParameterSpec writer = ParameterSpec.builder(JsonWriter.class, "writer").build();
     ParameterSpec value = ParameterSpec.builder(autoValueClassName, "value").build();
@@ -330,7 +403,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     return writeMethod.build();
   }
 
-  public MethodSpec createReadMethod(ClassName className, ClassName autoValueClassName,
+  public MethodSpec createReadMethod(ClassName className, TypeName autoValueClassName,
       ImmutableMap<Property, FieldSpec> adapters) {
     NameAllocator nameAllocator = new NameAllocator();
     ParameterSpec reader = ParameterSpec.builder(JsonReader.class, nameAllocator.newName("reader"))
