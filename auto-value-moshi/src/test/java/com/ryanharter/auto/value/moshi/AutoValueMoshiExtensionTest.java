@@ -12,8 +12,7 @@ import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
-public class AutoValueMoshiExtensionTest {
-
+public final class AutoValueMoshiExtensionTest {
   private JavaFileObject serializedName;
   private JavaFileObject nullable;
 
