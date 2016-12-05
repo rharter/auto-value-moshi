@@ -9,7 +9,7 @@ import java.util.Map;
 /** Showcases inclusion of all standard types. */
 @AutoValue public abstract class StandardObject {
   public static JsonAdapter<StandardObject> jsonAdapter(Moshi moshi) {
-    return AutoValue_StandardObject.jsonAdapter(moshi);
+    return new AutoValue_StandardObject.MoshiJsonAdapter(moshi);
   }
 
   public abstract boolean aBoolean();

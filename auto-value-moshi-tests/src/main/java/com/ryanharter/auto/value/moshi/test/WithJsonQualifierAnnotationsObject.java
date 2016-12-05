@@ -8,7 +8,7 @@ import java.util.List;
 
 @AutoValue public abstract class WithJsonQualifierAnnotationsObject {
   public static JsonAdapter<WithJsonQualifierAnnotationsObject> jsonAdapter(Moshi moshi) {
-    return AutoValue_WithJsonQualifierAnnotationsObject.jsonAdapter(moshi);
+    return new AutoValue_WithJsonQualifierAnnotationsObject.MoshiJsonAdapter(moshi);
   }
 
   @Json(name = "key1") public abstract String a();
