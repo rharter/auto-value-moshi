@@ -423,7 +423,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     FieldSpec name = FieldSpec.builder(String.class, nameAllocator.newName("name")).build();
     readMethod.beginControlFlow("while ($N.hasNext())", reader);
 
-    // Leverage the select API to avoid unnecessary string allocations
+    // Leverage the select API for better perf
     readMethod.addStatement("int index = reader.selectName(OPTIONS)");
     readMethod.addStatement("$T $N", name.type, name);
     readMethod.beginControlFlow("if (index != -1)");
