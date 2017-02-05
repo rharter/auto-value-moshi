@@ -2,9 +2,11 @@ package com.ryanharter.auto.value.moshi;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.extension.AutoValueExtension;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -265,9 +267,11 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     }
 
     boolean needsAdapterMethod = false;
+    List<String> names = Lists.newArrayListWithCapacity(adapters.size());
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
+      names.add(prop.serializedName());
 
       boolean usesJsonQualifier = false;
       for (AnnotationMirror annotationMirror : prop.element.getAnnotationMirrors()) {
@@ -300,6 +304,17 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         .addMethod(constructor.build())
         .addMethod(createReadMethod(className, autoValueClassName, adapters))
         .addMethod(createWriteMethod(autoValueClassName, adapters));
+
+    ArrayTypeName stringArray = ArrayTypeName.of(String.class);
+    ClassName optionsCN = ClassName.get(JsonReader.Options.class);
+    String initializer = "{\"" + Joiner.on("\",\"").join(names) + "\"}";
+    classBuilder
+        .addField(FieldSpec.builder(stringArray, "NAMES", PRIVATE, STATIC, FINAL)
+            .initializer(CodeBlock.of("new $T $L", stringArray, initializer))
+            .build())
+        .addField(FieldSpec.builder(optionsCN, "OPTIONS", PRIVATE, STATIC, FINAL)
+            .initializer(CodeBlock.of("$T.of(NAMES)", optionsCN))
+            .build());
 
     if (genericTypeNames != null) {
       classBuilder.addTypeVariables(Arrays.asList(genericTypeNames));
@@ -405,10 +420,23 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       readMethod.addStatement("$T $N = $L", field.type, field, defaultValue(field.type));
     }
 
+    FieldSpec name = FieldSpec.builder(String.class, nameAllocator.newName("name")).build();
     readMethod.beginControlFlow("while ($N.hasNext())", reader);
 
-    FieldSpec name = FieldSpec.builder(String.class, nameAllocator.newName("name")).build();
-    readMethod.addStatement("$T $N = $N.nextName()", name.type, name, reader);
+    // Leverage the select API to avoid unnecessary string allocations
+    readMethod.addStatement("int index = reader.selectName(OPTIONS)");
+    readMethod.addStatement("$T $N", name.type, name);
+    readMethod.beginControlFlow("if (index != -1)");
+
+    // Found it, pull out of our known strings
+    readMethod.addStatement("$N = NAMES[index]", name);
+    readMethod.nextControlFlow("else");
+
+    // Unrecognized type, skip it
+    readMethod.addStatement("$N.nextName()", reader);
+    readMethod.addStatement("$N.skipValue()", reader);
+    readMethod.addStatement("continue");
+    readMethod.endControlFlow();
 
     // check if JSON field value is NULL
     readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", reader, token);
