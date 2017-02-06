@@ -407,8 +407,6 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         .addParameter(reader)
         .addException(IOException.class);
 
-    ClassName token = ClassName.get(JsonReader.Token.NULL.getClass());
-
     readMethod.addStatement("$N.beginObject()", reader);
 
     // add the properties
@@ -420,19 +418,10 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       readMethod.addStatement("$T $N = $L", field.type, field, defaultValue(field.type));
     }
 
-    String index = nameAllocator.newName("index");
     readMethod.beginControlFlow("while ($N.hasNext())", reader);
 
     // Leverage the select API for better perf
-    readMethod.addStatement("final int $L = $N.selectName(OPTIONS)", index, reader);
-
-    // check if JSON field value is NULL
-    readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", reader, token);
-    readMethod.addStatement("$N.skipValue()", reader);
-    readMethod.addStatement("continue");
-    readMethod.endControlFlow();
-
-    readMethod.beginControlFlow("switch ($L)", index);
+    readMethod.beginControlFlow("switch ($N.selectName(OPTIONS))", reader);
     for (Map.Entry<Property, FieldSpec> entry : fields.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
