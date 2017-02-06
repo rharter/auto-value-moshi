@@ -424,7 +424,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     readMethod.beginControlFlow("while ($N.hasNext())", reader);
 
     // Leverage the select API for better perf
-    readMethod.addStatement("int index = reader.selectName(OPTIONS)");
+    readMethod.addStatement("int index = $N.selectName(OPTIONS)", reader);
     readMethod.addStatement("$T $N", name.type, name);
     readMethod.beginControlFlow("if (index != -1)");
 
@@ -444,7 +444,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     readMethod.addStatement("continue");
     readMethod.endControlFlow();
 
-    readMethod.beginControlFlow("switch ($N)", name);
+    readMethod.beginControlFlow("switch ($N.selectName(OPTIONS))", reader);
     for (Map.Entry<Property, FieldSpec> entry : fields.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
