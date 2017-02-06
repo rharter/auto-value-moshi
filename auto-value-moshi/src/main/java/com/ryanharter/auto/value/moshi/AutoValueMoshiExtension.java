@@ -2,9 +2,11 @@ package com.ryanharter.auto.value.moshi;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.extension.AutoValueExtension;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -265,9 +267,11 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     }
 
     boolean needsAdapterMethod = false;
+    List<String> names = Lists.newArrayListWithCapacity(adapters.size());
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
+      names.add(prop.serializedName());
 
       boolean usesJsonQualifier = false;
       for (AnnotationMirror annotationMirror : prop.element.getAnnotationMirrors()) {
@@ -298,8 +302,19 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         .superclass(typeAdapterClass)
         .addFields(adapters.values())
         .addMethod(constructor.build())
-        .addMethod(createReadMethod(className, autoValueClassName, adapters))
+        .addMethod(createReadMethod(className, autoValueClassName, adapters, names))
         .addMethod(createWriteMethod(autoValueClassName, adapters));
+
+    ArrayTypeName stringArray = ArrayTypeName.of(String.class);
+    ClassName optionsCN = ClassName.get(JsonReader.Options.class);
+    String initializer = "{\"" + Joiner.on("\",\"").join(names) + "\"}";
+    classBuilder
+        .addField(FieldSpec.builder(stringArray, "NAMES", PRIVATE, STATIC, FINAL)
+            .initializer(CodeBlock.of("new $T $L", stringArray, initializer))
+            .build())
+        .addField(FieldSpec.builder(optionsCN, "OPTIONS", PRIVATE, STATIC, FINAL)
+            .initializer(CodeBlock.of("$T.of(NAMES)", optionsCN))
+            .build());
 
     if (genericTypeNames != null) {
       classBuilder.addTypeVariables(Arrays.asList(genericTypeNames));
@@ -381,7 +396,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
   }
 
   public MethodSpec createReadMethod(ClassName className, TypeName autoValueClassName,
-      ImmutableMap<Property, FieldSpec> adapters) {
+      ImmutableMap<Property, FieldSpec> adapters, List<String> names) {
     NameAllocator nameAllocator = new NameAllocator();
     ParameterSpec reader = ParameterSpec.builder(JsonReader.class, nameAllocator.newName("reader"))
         .build();
@@ -391,8 +406,6 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         .returns(autoValueClassName)
         .addParameter(reader)
         .addException(IOException.class);
-
-    ClassName token = ClassName.get(JsonReader.Token.NULL.getClass());
 
     readMethod.addStatement("$N.beginObject()", reader);
 
@@ -407,28 +420,22 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
 
     readMethod.beginControlFlow("while ($N.hasNext())", reader);
 
-    FieldSpec name = FieldSpec.builder(String.class, nameAllocator.newName("name")).build();
-    readMethod.addStatement("$T $N = $N.nextName()", name.type, name, reader);
-
-    // check if JSON field value is NULL
-    readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", reader, token);
-    readMethod.addStatement("$N.skipValue()", reader);
-    readMethod.addStatement("continue");
-    readMethod.endControlFlow();
-
-    readMethod.beginControlFlow("switch ($N)", name);
+    // Leverage the select API for better perf
+    readMethod.beginControlFlow("switch ($N.selectName(OPTIONS))", reader);
     for (Map.Entry<Property, FieldSpec> entry : fields.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
 
-      readMethod.beginControlFlow("case $S:", prop.serializedName());
+      readMethod.beginControlFlow("case $L:", names.indexOf(prop.serializedName()));
       readMethod.addStatement("$N = $N.fromJson($N)", field, adapters.get(prop), reader);
       readMethod.addStatement("break");
       readMethod.endControlFlow();
     }
 
     // skip value if field is not serialized...
-    readMethod.beginControlFlow("default:");
+    readMethod.beginControlFlow("case -1:");
+    readMethod.addCode("// Unknown name, skip it\n");
+    readMethod.addStatement("$N.nextName()", reader);
     readMethod.addStatement("$N.skipValue()", reader);
     readMethod.endControlFlow();
 
