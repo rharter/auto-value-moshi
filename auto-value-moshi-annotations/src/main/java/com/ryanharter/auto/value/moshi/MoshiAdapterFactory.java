@@ -24,4 +24,9 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 @Retention(SOURCE)
 @Target(TYPE)
 public @interface MoshiAdapterFactory {
+  /**
+   * Indicates if the generated factory should request {@code null} safe adapters
+   * (default {@code false}).
+   */
+  boolean nullSafe() default false;
 }

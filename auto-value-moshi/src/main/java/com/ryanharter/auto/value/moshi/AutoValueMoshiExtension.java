@@ -57,7 +57,7 @@ import static javax.lang.model.element.Modifier.STATIC;
 
 @AutoService(AutoValueExtension.class)
 public class AutoValueMoshiExtension extends AutoValueExtension {
-  private static final ClassName ADAPTER_CLASS_NAME = ClassName.get(JsonAdapter.class);
+  static final ClassName ADAPTER_CLASS_NAME = ClassName.get(JsonAdapter.class);
 
   public static class Property {
     final String methodName;

@@ -15,7 +15,6 @@ import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.WildcardTypeName;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
-
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.ParameterizedType;
@@ -40,6 +39,7 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
+import static com.ryanharter.auto.value.moshi.AutoValueMoshiExtension.ADAPTER_CLASS_NAME;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -53,6 +53,18 @@ import static javax.tools.Diagnostic.Kind.ERROR;
  */
 @AutoService(Processor.class)
 public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
+  private static final ParameterSpec TYPE_SPEC = ParameterSpec.builder(Type.class, "type").build();
+  private static final WildcardTypeName WILDCARD_TYPE_NAME =
+      WildcardTypeName.subtypeOf(Annotation.class);
+  private static final ParameterSpec ANNOTATIONS_SPEC = ParameterSpec
+      .builder(
+          ParameterizedTypeName.get(ClassName.get(Set.class), WILDCARD_TYPE_NAME), "annotations")
+      .build();
+  private static final ParameterSpec MOSHI_SPEC =
+      ParameterSpec.builder(Moshi.class, "moshi").build();
+  private static final ParameterizedTypeName FACTORY_RETURN_TYPE_NAME =
+      ParameterizedTypeName.get(ADAPTER_CLASS_NAME, WildcardTypeName.subtypeOf(TypeName.OBJECT));
+
   private final AutoValueMoshiExtension extension = new AutoValueMoshiExtension();
   private Types typeUtils;
   private Elements elementUtils;
@@ -88,14 +100,19 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
         if (!element.getModifiers().contains(ABSTRACT)) {
           error(element, "Must be abstract!");
         }
-        TypeElement type =
-            (TypeElement) element; // Safe to cast because this is only applicable on types anyway
+        // Safe to cast because this is only applicable on types anyway
+        TypeElement type = (TypeElement) element;
         if (!implementsJsonAdapterFactory(type)) {
           error(element, "Must implement JsonAdapter.Factory!");
         }
         String adapterName = classNameOf(type);
         String packageName = packageNameOf(type);
-        TypeSpec jsonAdapterFactory = createJsonAdapterFactory(elements, packageName, adapterName);
+
+        MoshiAdapterFactory annotation = element.getAnnotation(MoshiAdapterFactory.class);
+        boolean requestNullSafeAdapters = annotation.nullSafe();
+
+        TypeSpec jsonAdapterFactory = createJsonAdapterFactory(elements, packageName, adapterName,
+            requestNullSafeAdapters);
         JavaFile file = JavaFile.builder(packageName, jsonAdapterFactory).build();
         try {
           file.writeTo(processingEnv.getFiler());
@@ -111,26 +128,21 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
   }
 
   private TypeSpec createJsonAdapterFactory(List<Element> elements, String packageName,
-      String adapterName) {
+      String factoryName, boolean requestNullSafeAdapters) {
     TypeSpec.Builder factory =
-        TypeSpec.classBuilder(ClassName.get(packageName, "AutoValueMoshi_" + adapterName));
+        TypeSpec.classBuilder(ClassName.get(packageName, "AutoValueMoshi_" + factoryName));
     factory.addModifiers(PUBLIC, FINAL);
-    factory.superclass(ClassName.get(packageName, adapterName));
+    factory.superclass(ClassName.get(packageName, factoryName));
 
-    ParameterSpec type = ParameterSpec.builder(Type.class, "type").build();
-    WildcardTypeName extendsAnnotation = WildcardTypeName.subtypeOf(Annotation.class);
-    ParameterSpec annotations = ParameterSpec
-        .builder(
-            ParameterizedTypeName.get(ClassName.get(Set.class), extendsAnnotation), "annotations")
-        .build();
-    ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
-    ParameterizedTypeName result = ParameterizedTypeName.get(ClassName.get(JsonAdapter.class),
-        WildcardTypeName.subtypeOf(TypeName.OBJECT));
+    ParameterSpec type = TYPE_SPEC;
+    ParameterSpec annotations = ANNOTATIONS_SPEC;
+    ParameterSpec moshi = MOSHI_SPEC;
+
     MethodSpec.Builder create = MethodSpec.methodBuilder("create")
         .addModifiers(PUBLIC)
         .addAnnotation(Override.class)
         .addParameters(ImmutableSet.of(type, annotations, moshi))
-        .returns(result);
+        .returns(FACTORY_RETURN_TYPE_NAME);
 
     CodeBlock.Builder classes = null;
     CodeBlock.Builder generics = null;
@@ -153,7 +165,8 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
                   ParameterizedType.class, type);
         }
 
-        addControlFlowGeneric(generics, elementTypeName, moshi, type, element, numGenerics);
+        addControlFlowGeneric(generics, elementTypeName, element, numGenerics,
+            requestNullSafeAdapters);
         numGenerics++;
       } else {
         if (classes == null) {
@@ -163,10 +176,12 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
         addControlFlow(classes, CodeBlock.of("$N", type), elementTypeName, numClasses);
         numClasses++;
 
+        String returnStatement = requestNullSafeAdapters
+            ? "return $T.$L($N).nullSafe()"
+            : "return $T.$L($N)";
         ExecutableElement jsonAdapterMethod = getJsonAdapterMethod(element);
-        classes.addStatement("return $T.$L($N)", element, jsonAdapterMethod.getSimpleName(), moshi);
+        classes.addStatement(returnStatement, element, jsonAdapterMethod.getSimpleName(), moshi);
       }
-
     }
 
     if (generics != null) {
@@ -187,17 +202,21 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
   }
 
   private void addControlFlowGeneric(CodeBlock.Builder block, TypeName elementTypeName,
-      ParameterSpec moshi, ParameterSpec type, Element element, int numGenerics) {
+      Element element, int numGenerics, boolean requestNullSafeAdapters) {
     TypeName typeName = ((ParameterizedTypeName) elementTypeName).rawType;
     CodeBlock typeBlock = CodeBlock.of("rawType");
 
     addControlFlow(block, typeBlock, typeName, numGenerics);
 
+    String returnStatement = requestNullSafeAdapters
+        ? "return $L.$L($N, (($T) $N).getActualTypeArguments()).nullSafe()"
+        : "return $L.$L($N, (($T) $N).getActualTypeArguments())";
+
     ExecutableElement jsonAdapterMethod = getJsonAdapterMethod(element);
     if (jsonAdapterMethod.getParameters().size() > 1) {
-      block.addStatement("return $L.$L($N, (($T) $N).getActualTypeArguments())",
-          element.getSimpleName(), jsonAdapterMethod.getSimpleName(), moshi,
-          ParameterizedType.class, type);
+      block.addStatement(returnStatement,
+          element.getSimpleName(), jsonAdapterMethod.getSimpleName(), MOSHI_SPEC,
+          ParameterizedType.class, TYPE_SPEC);
     }
   }
 
@@ -223,7 +242,7 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
         }
       }
     }
-    return null;
+    throw new AssertionError();
   }
 
   private void error(Element element, String message, Object... args) {
