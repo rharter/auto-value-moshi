@@ -444,8 +444,8 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     }
 
     // skip value if field is not serialized...
-    readMethod.beginControlFlow("default:");
-    readMethod.addCode("// Unknown type, skip it\n");
+    readMethod.beginControlFlow("case -1:");
+    readMethod.addCode("// Unknown name, skip it\n");
     readMethod.addStatement("$N.nextName()", reader);
     readMethod.addStatement("$N.skipValue()", reader);
     readMethod.endControlFlow();
