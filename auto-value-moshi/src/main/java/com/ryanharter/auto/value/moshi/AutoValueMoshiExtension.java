@@ -302,7 +302,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         .superclass(typeAdapterClass)
         .addFields(adapters.values())
         .addMethod(constructor.build())
-        .addMethod(createReadMethod(className, autoValueClassName, adapters))
+        .addMethod(createReadMethod(className, autoValueClassName, adapters, names))
         .addMethod(createWriteMethod(autoValueClassName, adapters));
 
     ArrayTypeName stringArray = ArrayTypeName.of(String.class);
@@ -396,7 +396,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
   }
 
   public MethodSpec createReadMethod(ClassName className, TypeName autoValueClassName,
-      ImmutableMap<Property, FieldSpec> adapters) {
+      ImmutableMap<Property, FieldSpec> adapters, List<String> names) {
     NameAllocator nameAllocator = new NameAllocator();
     ParameterSpec reader = ParameterSpec.builder(JsonReader.class, nameAllocator.newName("reader"))
         .build();
@@ -420,23 +420,11 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       readMethod.addStatement("$T $N = $L", field.type, field, defaultValue(field.type));
     }
 
-    FieldSpec name = FieldSpec.builder(String.class, nameAllocator.newName("name")).build();
+    String index = nameAllocator.newName("index");
     readMethod.beginControlFlow("while ($N.hasNext())", reader);
 
     // Leverage the select API for better perf
-    readMethod.addStatement("int index = $N.selectName(OPTIONS)", reader);
-    readMethod.addStatement("$T $N", name.type, name);
-    readMethod.beginControlFlow("if (index != -1)");
-
-    // Found it, pull out of our known strings
-    readMethod.addStatement("$N = NAMES[index]", name);
-    readMethod.nextControlFlow("else");
-
-    // Unrecognized type, skip it
-    readMethod.addStatement("$N.nextName()", reader);
-    readMethod.addStatement("$N.skipValue()", reader);
-    readMethod.addStatement("continue");
-    readMethod.endControlFlow();
+    readMethod.addStatement("final int $L = $N.selectName(OPTIONS)", index, reader);
 
     // check if JSON field value is NULL
     readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", reader, token);
@@ -444,12 +432,12 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     readMethod.addStatement("continue");
     readMethod.endControlFlow();
 
-    readMethod.beginControlFlow("switch ($N.selectName(OPTIONS))", reader);
+    readMethod.beginControlFlow("switch ($L)", index);
     for (Map.Entry<Property, FieldSpec> entry : fields.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
 
-      readMethod.beginControlFlow("case $S:", prop.serializedName());
+      readMethod.beginControlFlow("case $L:", names.indexOf(prop.serializedName()));
       readMethod.addStatement("$N = $N.fromJson($N)", field, adapters.get(prop), reader);
       readMethod.addStatement("break");
       readMethod.endControlFlow();
@@ -457,6 +445,8 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
 
     // skip value if field is not serialized...
     readMethod.beginControlFlow("default:");
+    readMethod.addCode("// Unknown type, skip it\n");
+    readMethod.addStatement("$N.nextName()", reader);
     readMethod.addStatement("$N.skipValue()", reader);
     readMethod.endControlFlow();
 
