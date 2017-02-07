@@ -493,19 +493,18 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         } else if (typeArg instanceof WildcardTypeName) {
           WildcardTypeName wildcard = (WildcardTypeName) typeArg;
           TypeName target;
-          if (wildcard.upperBounds.size() <= 1
-              && wildcard.lowerBounds.size() <= 1
-              && (wildcard.upperBounds.isEmpty() || wildcard.lowerBounds.isEmpty())) {
-            if (wildcard.upperBounds.size() == 1) {
-              target = wildcard.upperBounds.get(0);
-            } else {
-              target = wildcard.lowerBounds.get(0);
-            }
+          String method;
+          if (wildcard.lowerBounds.size() == 1) {
+            target = wildcard.lowerBounds.get(0);
+            method = "supertypeOf";
+          } else if (wildcard.upperBounds.size() == 1) {
+            target = wildcard.upperBounds.get(0);
+            method = "subtypeOf";
           } else {
             throw new IllegalArgumentException(
                 "Unrepresentable wildcard type. Cannot have more than one bound: " + wildcard);
           }
-          block.add(", $T.class", target);
+          block.add(", $T.$L($T.class)", Types.class, method, target);
         } else {
           block.add(", $T.class", typeArg);
         }
