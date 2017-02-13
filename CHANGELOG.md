@@ -1,5 +1,12 @@
 # Change Log
 
+## Version 0.4.3 (2017-02-13)
+
+* Doesn't generate redundant static JsonAdapter method. (#72)
+* Leverage Moshi 1.4's `select()` API for better performance. (#76)
+* Make generated factory request null save adapters. (#71)
+* Handle wildcard types in generics. (#78)
+
 ## Version 0.4.2 (2016-11-03)
 
 #### Supports: AutoValue 1.3
