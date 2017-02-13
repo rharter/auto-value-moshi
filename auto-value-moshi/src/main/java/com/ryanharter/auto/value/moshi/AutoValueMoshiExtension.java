@@ -18,6 +18,7 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
+import com.squareup.javapoet.WildcardTypeName;
 import com.squareup.moshi.Json;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonQualifier;
@@ -489,6 +490,21 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       for (TypeName typeArg : pType.typeArguments) {
         if (typeArg instanceof ParameterizedTypeName) {
           block.add(", $L", makeType(typeArg));
+        } else if (typeArg instanceof WildcardTypeName) {
+          WildcardTypeName wildcard = (WildcardTypeName) typeArg;
+          TypeName target;
+          String method;
+          if (wildcard.lowerBounds.size() == 1) {
+            target = wildcard.lowerBounds.get(0);
+            method = "supertypeOf";
+          } else if (wildcard.upperBounds.size() == 1) {
+            target = wildcard.upperBounds.get(0);
+            method = "subtypeOf";
+          } else {
+            throw new IllegalArgumentException(
+                "Unrepresentable wildcard type. Cannot have more than one bound: " + wildcard);
+          }
+          block.add(", $T.$L($T.class)", Types.class, method, target);
         } else {
           block.add(", $T.class", typeArg);
         }
