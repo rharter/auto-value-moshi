@@ -67,7 +67,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     final TypeName type;
     final ImmutableSet<String> annotations;
 
-    public Property(String name, ExecutableElement element) {
+    Property(String name, ExecutableElement element) {
       this.methodName = element.getSimpleName().toString();
       this.humanName = name;
       this.element = element;
@@ -76,7 +76,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       annotations = buildAnnotations(element);
     }
 
-    public String serializedName() {
+    String serializedName() {
       Json json = element.getAnnotation(Json.class);
       if (json != null) {
         return json.name();
@@ -85,7 +85,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       }
     }
 
-    public boolean nullable() {
+    boolean nullable() {
       return annotations.contains("Nullable");
     }
 
@@ -198,7 +198,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     return JavaFile.builder(context.packageName(), subclass.build()).build().toString();
   }
 
-  public List<Property> readProperties(Map<String, ExecutableElement> properties) {
+  private List<Property> readProperties(Map<String, ExecutableElement> properties) {
     List<Property> values = new LinkedList<>();
     for (Map.Entry<String, ExecutableElement> entry : properties.entrySet()) {
       values.add(new Property(entry.getKey(), entry.getValue()));
@@ -206,7 +206,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     return values;
   }
 
-  ImmutableMap<Property, FieldSpec> createFields(List<Property> properties) {
+  private ImmutableMap<Property, FieldSpec> createFields(List<Property> properties) {
     ImmutableMap.Builder<Property, FieldSpec> fields = ImmutableMap.builder();
 
     for (Property property : properties) {
@@ -219,7 +219,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     return fields.build();
   }
 
-  MethodSpec generateConstructor(Map<String, TypeName> properties) {
+  private MethodSpec generateConstructor(Map<String, TypeName> properties) {
     List<ParameterSpec> params = Lists.newArrayList();
     for (Map.Entry<String, TypeName> entry : properties.entrySet()) {
       params.add(ParameterSpec.builder(entry.getValue(), entry.getKey()).build());
@@ -240,7 +240,8 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
   }
 
   /** Converts the ExecutableElement properties to TypeName properties. */
-  Map<String, TypeName> convertPropertiesToTypes(Map<String, ExecutableElement> properties) {
+  private Map<String, TypeName> convertPropertiesToTypes(
+      Map<String, ExecutableElement> properties) {
     Map<String, TypeName> types = new LinkedHashMap<>();
     for (Map.Entry<String, ExecutableElement> entry : properties.entrySet()) {
       ExecutableElement el = entry.getValue();
@@ -249,7 +250,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     return types;
   }
 
-  public TypeSpec createTypeAdapter(ClassName className, TypeName autoValueClassName,
+  private TypeSpec createTypeAdapter(ClassName className, TypeName autoValueClassName,
       TypeVariableName[] genericTypeNames, List<Property> properties) {
     TypeName typeAdapterClass = ParameterizedTypeName.get(ADAPTER_CLASS_NAME, autoValueClassName);
 
@@ -365,7 +366,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         .build();
   }
 
-  public MethodSpec createWriteMethod(TypeName autoValueClassName,
+  private MethodSpec createWriteMethod(TypeName autoValueClassName,
       ImmutableMap<Property, FieldSpec> adapters) {
     ParameterSpec writer = ParameterSpec.builder(JsonWriter.class, "writer").build();
     ParameterSpec value = ParameterSpec.builder(autoValueClassName, "value").build();
@@ -377,14 +378,19 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         .addException(IOException.class);
 
     writeMethod.addStatement("$N.beginObject()", writer);
+
+    NameAllocator nameAllocator = new NameAllocator();
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
+      nameAllocator.newName(prop.humanName, prop);
 
       if (prop.nullable()) {
-        writeMethod.beginControlFlow("if ($N.$N() != null)", value, prop.methodName);
+        String name = nameAllocator.get(prop);
+        writeMethod.addStatement("$T $N = $N.$N()", prop.type, name, value, prop.methodName);
+        writeMethod.beginControlFlow("if ($N != null)", name);
         writeMethod.addStatement("$N.name($S)", writer, prop.serializedName());
-        writeMethod.addStatement("$N.toJson($N, $N.$N())", field, writer, value, prop.methodName);
+        writeMethod.addStatement("$N.toJson($N, $N)", field, writer, name);
         writeMethod.endControlFlow();
       } else {
         writeMethod.addStatement("$N.name($S)", writer, prop.serializedName());
@@ -396,7 +402,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     return writeMethod.build();
   }
 
-  public MethodSpec createReadMethod(ClassName className, TypeName autoValueClassName,
+  private MethodSpec createReadMethod(ClassName className, TypeName autoValueClassName,
       ImmutableMap<Property, FieldSpec> adapters, List<String> names) {
     NameAllocator nameAllocator = new NameAllocator();
     ParameterSpec reader = ParameterSpec.builder(JsonReader.class, nameAllocator.newName("reader"))
