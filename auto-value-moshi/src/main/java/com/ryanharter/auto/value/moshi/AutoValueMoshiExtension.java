@@ -368,8 +368,10 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
 
   private MethodSpec createWriteMethod(TypeName autoValueClassName,
       ImmutableMap<Property, FieldSpec> adapters) {
-    ParameterSpec writer = ParameterSpec.builder(JsonWriter.class, "writer").build();
-    ParameterSpec value = ParameterSpec.builder(autoValueClassName, "value").build();
+    String writerName = "writer";
+    String valueName = "value";
+    ParameterSpec writer = ParameterSpec.builder(JsonWriter.class, writerName).build();
+    ParameterSpec value = ParameterSpec.builder(autoValueClassName, valueName).build();
     MethodSpec.Builder writeMethod = MethodSpec.methodBuilder("toJson")
         .addAnnotation(Override.class)
         .addModifiers(PUBLIC)
@@ -380,6 +382,8 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     writeMethod.addStatement("$N.beginObject()", writer);
 
     NameAllocator nameAllocator = new NameAllocator();
+    nameAllocator.newName(writerName);
+    nameAllocator.newName(valueName);
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
@@ -390,11 +394,12 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         writeMethod.addStatement("$T $N = $N.$N()", prop.type, name, value, prop.methodName);
         writeMethod.beginControlFlow("if ($N != null)", name);
         writeMethod.addStatement("$N.name($S)", writer, prop.serializedName());
-        writeMethod.addStatement("$N.toJson($N, $N)", field, writer, name);
+        writeMethod.addStatement("this.$N.toJson($N, $N)", field, writer, name);
         writeMethod.endControlFlow();
       } else {
         writeMethod.addStatement("$N.name($S)", writer, prop.serializedName());
-        writeMethod.addStatement("$N.toJson($N, $N.$N())", field, writer, value, prop.methodName);
+        writeMethod.addStatement("this.$N.toJson($N, $N.$N())", field, writer, value,
+            prop.methodName);
       }
     }
     writeMethod.addStatement("$N.endObject()", writer);
@@ -434,7 +439,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       FieldSpec field = entry.getValue();
 
       readMethod.beginControlFlow("case $L:", names.indexOf(prop.serializedName()));
-      readMethod.addStatement("$N = $N.fromJson($N)", field, adapters.get(prop), reader);
+      readMethod.addStatement("$N = this.$N.fromJson($N)", field, adapters.get(prop), reader);
       readMethod.addStatement("break");
       readMethod.endControlFlow();
     }
