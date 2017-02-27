@@ -10,8 +10,8 @@ ext {
         autoCommon    : '0.6',
         moshi         : '1.4.0',
         // For testing
-        junit         : '4.11',
-        truth         : '0.27',
+        junit         : '4.12',
+        truth         : '0.32',
         compileTesting: '0.9',
         assertJ       : '2.5.0',
     ]
