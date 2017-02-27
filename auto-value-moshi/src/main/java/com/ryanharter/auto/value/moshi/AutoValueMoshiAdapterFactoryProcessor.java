@@ -237,7 +237,7 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
           && method.getModifiers().contains(Modifier.PUBLIC)) {
         TypeMirror rType = method.getReturnType();
         TypeName returnType = TypeName.get(rType);
-        if (returnType.equals(jsonAdapterType) || returnType instanceof ParameterizedTypeName) {
+        if (returnType.equals(jsonAdapterType)) {
           return method;
         }
       }
