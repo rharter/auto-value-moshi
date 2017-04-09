@@ -108,7 +108,8 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         ADAPTER_CLASS_NAME, TypeName.get(type.asType()));
     TypeName returnedJsonAdapter = null;
     for (ExecutableElement method : ElementFilter.methodsIn(type.getEnclosedElements())) {
-      if (method.getModifiers().contains(Modifier.STATIC)) {
+      if (method.getModifiers().contains(Modifier.STATIC)
+          && !method.getModifiers().contains(Modifier.PRIVATE)) {
         TypeMirror rType = method.getReturnType();
         TypeName returnType = TypeName.get(rType);
         if (returnType.equals(jsonAdapterType)) {
