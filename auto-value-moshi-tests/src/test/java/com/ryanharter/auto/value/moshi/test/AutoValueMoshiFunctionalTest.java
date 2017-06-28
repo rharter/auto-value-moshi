@@ -2,7 +2,10 @@ package com.ryanharter.auto.value.moshi.test;
 
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
+import com.squareup.moshi.Types;
 import org.junit.Test;
+
+import java.lang.reflect.Type;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
@@ -11,6 +14,7 @@ public final class AutoValueMoshiFunctionalTest {
   private final Moshi moshi = new Moshi.Builder()
       .add(FunctionalTestsAdapterFactory.create())
       .add(new ReverseList.JsonAdapter())
+      .add(new ReverseString.JsonAdapter())
       .build();
 
   @Test public void standardObject() throws Exception {
@@ -128,5 +132,22 @@ public final class AutoValueMoshiFunctionalTest {
 
     String toJson = adapter.toJson(fromJson);
     assertThat(toJson).isEqualTo("{\"value\":{\"a\":\"Some value\"}}");
+  }
+
+  @Test public void objectWithGenericsAndQualifiers() throws Exception {
+    Type type = Types.newParameterizedType(ObjectWithGenericsAndQualifiers.class, String.class);
+    JsonAdapter<ObjectWithGenericsAndQualifiers<String>> adapter = moshi.adapter(type);
+
+    ObjectWithGenericsAndQualifiers<String> fromJson = adapter.fromJson("{\n"
+        + "  \"reversed_list\": [\"one\", \"two\", \"three\"],\n"
+        + "  \"reversedGeneric\": \"abc\",\n"
+        + "  \"reversedString\": \"def\",\n"
+        + "  \"normalString\": \"123\"\n"
+        + "}");
+
+    assertThat(fromJson.reversedList()).containsExactly("three", "two", "one");
+    assertThat(fromJson.reversedGeneric()).isEqualTo("cba");
+    assertThat(fromJson.reversedString()).isEqualTo("fed");
+    assertThat(fromJson.normalString()).isEqualTo("123");
   }
 }

@@ -26,19 +26,7 @@ import com.squareup.moshi.JsonReader;
 import com.squareup.moshi.JsonWriter;
 import com.squareup.moshi.Moshi;
 import com.squareup.moshi.Types;
-import java.io.IOException;
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
-import java.lang.reflect.Type;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -49,6 +37,21 @@ import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
+import java.io.IOException;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -275,6 +278,15 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       FieldSpec field = entry.getValue();
       names.add(prop.serializedName());
 
+      TypeVariableName usedDeclaredGenericTypeName = null;
+      if (genericTypeNames != null && prop.type instanceof TypeVariableName)
+        usedDeclaredGenericTypeName = (TypeVariableName) prop.type;
+
+      if (prop.type instanceof ParameterizedTypeName && genericTypeNames != null) {
+        usedDeclaredGenericTypeName = (TypeVariableName) ((ParameterizedTypeName) prop.type)
+            .typeArguments.get(0);
+      }
+
       boolean usesJsonQualifier = false;
       for (AnnotationMirror annotationMirror : prop.element.getAnnotationMirrors()) {
         Element annotationType = annotationMirror.getAnnotationType().asElement();
@@ -283,8 +295,15 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
           needsAdapterMethod = true;
         }
       }
-      if (usesJsonQualifier) {
-        constructor.addStatement("this.$N = adapter($N, \"$L\")", field, moshi, prop.methodName);
+      if (usedDeclaredGenericTypeName != null && usesJsonQualifier) {
+        needsAdapterMethod = true;
+      }
+      if (usedDeclaredGenericTypeName != null && usesJsonQualifier) {
+        constructor.addStatement("this.$N = adapter($N, $S, $N[$L])",
+            field, moshi, prop.methodName, type,
+            getTypeIndexInArray(genericTypeNames, usedDeclaredGenericTypeName));
+      } else if (usesJsonQualifier) {
+        constructor.addStatement("this.$N = adapter($N, $S, null)", field, moshi, prop.methodName);
       } else if (genericTypeNames != null && prop.type instanceof ParameterizedTypeName) {
         ParameterizedTypeName typeName = ((ParameterizedTypeName) prop.type);
         constructor.addStatement("this.$N = $N.adapter($T.newParameterizedType($T.class, $N[$L]))",
@@ -339,16 +358,23 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
   }
 
   private MethodSpec createAdapterMethod(TypeName autoValueClassName) {
+    TypeName rawClassName = autoValueClassName;
+    // Resolve the raw class name if it uses generics so we don't run in to a compilation error down
+    // the road when we reverence it with `N.class`
+    if (rawClassName instanceof ParameterizedTypeName)
+      rawClassName = ((ParameterizedTypeName) rawClassName).rawType;
     ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
     ParameterSpec methodName = ParameterSpec.builder(String.class, "methodName").build();
+    ParameterSpec declaredGenericType = ParameterSpec.builder(Type.class,
+        "declaredGenericType").build();
     return MethodSpec.methodBuilder("adapter")
         .addModifiers(PRIVATE)
-        .addParameters(ImmutableSet.of(moshi, methodName))
+        .addParameters(ImmutableSet.of(moshi, methodName, declaredGenericType))
         .returns(ADAPTER_CLASS_NAME)
         .addCode(CodeBlock.builder()
             .beginControlFlow("try")
             .addStatement("$T method = $T.class.getDeclaredMethod($N)",
-                Method.class, autoValueClassName, methodName)
+                Method.class, rawClassName, methodName)
             .addStatement("$T<$T> annotations = new $T<>()",
                 Set.class, Annotation.class, LinkedHashSet.class)
             .beginControlFlow("for ($T annotation : method.getAnnotations())", Annotation.class)
@@ -357,7 +383,18 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
             .addStatement("annotations.add(annotation)")
             .endControlFlow()
             .endControlFlow()
-            .addStatement("return $N.adapter(method.getGenericReturnType(), annotations)", moshi)
+            .addStatement("$T adapterType = method.getGenericReturnType()", Type.class)
+            .beginControlFlow("if (declaredGenericType != null)")
+            .beginControlFlow("if (adapterType instanceof $T)", ParameterizedType.class)
+            .addStatement("adapterType = $T.newParameterizedType((($T) adapterType).getRawType(), "
+                + "declaredGenericType)",
+                Types.class, ParameterizedType.class)
+            .endControlFlow()
+            .beginControlFlow("else if (adapterType instanceof $T)", TypeVariable.class)
+            .addStatement("adapterType = declaredGenericType")
+            .endControlFlow()
+            .endControlFlow()
+            .addStatement("return $N.adapter(adapterType, annotations)", moshi)
             .nextControlFlow("catch ($T e)", NoSuchMethodException.class)
             .addStatement("throw new RuntimeException(\"No method named \" + $N, e)", methodName)
             .endControlFlow()
