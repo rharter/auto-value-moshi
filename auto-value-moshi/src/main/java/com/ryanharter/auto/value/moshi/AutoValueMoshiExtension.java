@@ -43,6 +43,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -259,32 +260,38 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
 
     ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
 
-    ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
-    ParameterSpec type = null;
+    ParameterSpec moshiInstance = ParameterSpec.builder(Moshi.class, "moshi").build();
+    ParameterSpec typesArray = null;
 
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder()
         .addModifiers(PUBLIC)
-        .addParameter(moshi);
+        .addParameter(moshiInstance);
 
     if (genericTypeNames != null) {
-      type = ParameterSpec.builder(Type[].class, "types").build();
-      constructor.addParameter(type);
+      typesArray = ParameterSpec.builder(Type[].class, "types").build();
+      constructor.addParameter(typesArray);
     }
 
     boolean needsAdapterMethod = false;
     List<String> names = Lists.newArrayListWithCapacity(adapters.size());
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
-      FieldSpec field = entry.getValue();
+      FieldSpec moshiField = entry.getValue();
       names.add(prop.serializedName());
 
-      TypeVariableName usedDeclaredGenericTypeName = null;
-      if (genericTypeNames != null && prop.type instanceof TypeVariableName)
-        usedDeclaredGenericTypeName = (TypeVariableName) prop.type;
+      List<TypeVariableName> usedDeclaredGenericTypeNames = new ArrayList<>();
 
-      if (prop.type instanceof ParameterizedTypeName && genericTypeNames != null) {
-        usedDeclaredGenericTypeName = (TypeVariableName) ((ParameterizedTypeName) prop.type)
-            .typeArguments.get(0);
+      if (genericTypeNames != null) {
+        if (prop.type instanceof TypeVariableName) {
+          usedDeclaredGenericTypeNames.add((TypeVariableName) prop.type);
+        }
+        if (prop.type instanceof ParameterizedTypeName) {
+          for (TypeName t : ((ParameterizedTypeName) prop.type).typeArguments) {
+            if (t instanceof TypeVariableName) {
+              usedDeclaredGenericTypeNames.add((TypeVariableName) t);
+            }
+          }
+        }
       }
 
       boolean usesJsonQualifier = false;
@@ -295,26 +302,34 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
           needsAdapterMethod = true;
         }
       }
-      if (usedDeclaredGenericTypeName != null && usesJsonQualifier) {
+
+      if (!usedDeclaredGenericTypeNames.isEmpty() && usesJsonQualifier) {
+        // Property uses generics and JsonQualifiers
         needsAdapterMethod = true;
-      }
-      if (usedDeclaredGenericTypeName != null && usesJsonQualifier) {
         constructor.addStatement("this.$N = adapter($N, $S, $N[$L])",
-            field, moshi, prop.methodName, type,
-            getTypeIndexInArray(genericTypeNames, usedDeclaredGenericTypeName));
+            moshiField, moshiInstance, prop.methodName, typesArray,
+            getTypeIndexInArray(genericTypeNames, usedDeclaredGenericTypeNames.get(0)));
       } else if (usesJsonQualifier) {
-        constructor.addStatement("this.$N = adapter($N, $S, null)", field, moshi, prop.methodName);
+        // Property only uses JsonQualifiers
+        constructor.addStatement("this.$N = adapter($N, $S, null)", moshiField, moshiInstance,
+            prop.methodName);
       } else if (genericTypeNames != null && prop.type instanceof ParameterizedTypeName) {
+        // Property is a parameterized type that may or may not use generics (like "List<T>" or
+        // "List<String>"
         ParameterizedTypeName typeName = ((ParameterizedTypeName) prop.type);
-        constructor.addStatement("this.$N = $N.adapter($T.newParameterizedType($T.class, $N[$L]))",
-            field, moshi, Types.class, typeName.rawType, type,
-            getTypeIndexInArray(genericTypeNames, typeName.typeArguments.get(0)));
+        CodeBlock adapterTargetType = makeType(typeName, typesArray, genericTypeNames);
+        constructor.addStatement("this.$N = $N.adapter($L)",
+            moshiField, moshiInstance, adapterTargetType);
       } else if (genericTypeNames != null
           && getTypeIndexInArray(genericTypeNames, prop.type) >= 0) {
-        constructor.addStatement("this.$N = $N.adapter($N[$L])", field, moshi, type,
-            getTypeIndexInArray(genericTypeNames, prop.type));
+        // Property is a simple generic type (like "T"). Resolve the type at runtime through the
+        // types array passed through the constructor
+        constructor.addStatement("this.$N = $N.adapter($N[$L])", moshiField, moshiInstance,
+            typesArray, getTypeIndexInArray(genericTypeNames, prop.type));
       } else {
-        constructor.addStatement("this.$N = $N.adapter($L)", field, moshi, makeType(prop.type));
+        // Normal property
+        constructor.addStatement("this.$N = $N.adapter($L)", moshiField, moshiInstance,
+            makeType(prop.type, typesArray, genericTypeNames));
       }
     }
 
@@ -530,14 +545,17 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     }
   }
 
-  private CodeBlock makeType(TypeName type) {
+  // typesArray and genericTypeNames only need to be non-null when using generic types
+  private CodeBlock makeType(TypeName type, ParameterSpec typesArray,
+      TypeVariableName[] genericTypeNames) {
+
     CodeBlock.Builder block = CodeBlock.builder();
     if (type instanceof ParameterizedTypeName) {
       ParameterizedTypeName pType = (ParameterizedTypeName) type;
       block.add("$T.newParameterizedType($T.class", Types.class, pType.rawType);
       for (TypeName typeArg : pType.typeArguments) {
         if (typeArg instanceof ParameterizedTypeName) {
-          block.add(", $L", makeType(typeArg));
+          block.add(", $L", makeType(typeArg, typesArray, genericTypeNames));
         } else if (typeArg instanceof WildcardTypeName) {
           WildcardTypeName wildcard = (WildcardTypeName) typeArg;
           TypeName target;
@@ -553,6 +571,9 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
                 "Unrepresentable wildcard type. Cannot have more than one bound: " + wildcard);
           }
           block.add(", $T.$L($T.class)", Types.class, method, target);
+        } else if (typeArg instanceof TypeVariableName) {
+          TypeVariableName genericType = (TypeVariableName) typeArg;
+          block.add(", $N[$L]", typesArray, getTypeIndexInArray(genericTypeNames, genericType));
         } else {
           block.add(", $T.class", typeArg);
         }
