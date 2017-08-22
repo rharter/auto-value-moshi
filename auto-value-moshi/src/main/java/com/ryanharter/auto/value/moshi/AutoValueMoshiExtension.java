@@ -26,19 +26,7 @@ import com.squareup.moshi.JsonReader;
 import com.squareup.moshi.JsonWriter;
 import com.squareup.moshi.Moshi;
 import com.squareup.moshi.Types;
-import java.io.IOException;
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
-import java.lang.reflect.Type;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -49,6 +37,22 @@ import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
+import java.io.IOException;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -256,24 +260,39 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
 
     ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
 
-    ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
-    ParameterSpec type = null;
+    ParameterSpec moshiInstance = ParameterSpec.builder(Moshi.class, "moshi").build();
+    ParameterSpec typesArray = null;
 
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder()
         .addModifiers(PUBLIC)
-        .addParameter(moshi);
+        .addParameter(moshiInstance);
 
     if (genericTypeNames != null) {
-      type = ParameterSpec.builder(Type[].class, "types").build();
-      constructor.addParameter(type);
+      typesArray = ParameterSpec.builder(Type[].class, "types").build();
+      constructor.addParameter(typesArray);
     }
 
     boolean needsAdapterMethod = false;
     List<String> names = Lists.newArrayListWithCapacity(adapters.size());
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
-      FieldSpec field = entry.getValue();
+      FieldSpec moshiField = entry.getValue();
       names.add(prop.serializedName());
+
+      List<TypeVariableName> usedDeclaredGenericTypeNames = new ArrayList<>();
+
+      if (genericTypeNames != null) {
+        if (prop.type instanceof TypeVariableName) {
+          usedDeclaredGenericTypeNames.add((TypeVariableName) prop.type);
+        }
+        if (prop.type instanceof ParameterizedTypeName) {
+          for (TypeName t : ((ParameterizedTypeName) prop.type).typeArguments) {
+            if (t instanceof TypeVariableName) {
+              usedDeclaredGenericTypeNames.add((TypeVariableName) t);
+            }
+          }
+        }
+      }
 
       boolean usesJsonQualifier = false;
       for (AnnotationMirror annotationMirror : prop.element.getAnnotationMirrors()) {
@@ -283,19 +302,34 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
           needsAdapterMethod = true;
         }
       }
-      if (usesJsonQualifier) {
-        constructor.addStatement("this.$N = adapter($N, \"$L\")", field, moshi, prop.methodName);
+
+      if (!usedDeclaredGenericTypeNames.isEmpty() && usesJsonQualifier) {
+        // Property uses generics and JsonQualifiers
+        needsAdapterMethod = true;
+        constructor.addStatement("this.$N = adapter($N, $S, $N[$L])",
+            moshiField, moshiInstance, prop.methodName, typesArray,
+            getTypeIndexInArray(genericTypeNames, usedDeclaredGenericTypeNames.get(0)));
+      } else if (usesJsonQualifier) {
+        // Property only uses JsonQualifiers
+        constructor.addStatement("this.$N = adapter($N, $S, null)", moshiField, moshiInstance,
+            prop.methodName);
       } else if (genericTypeNames != null && prop.type instanceof ParameterizedTypeName) {
+        // Property is a parameterized type that may or may not use generics (like "List<T>" or
+        // "List<String>"
         ParameterizedTypeName typeName = ((ParameterizedTypeName) prop.type);
-        constructor.addStatement("this.$N = $N.adapter($T.newParameterizedType($T.class, $N[$L]))",
-            field, moshi, Types.class, typeName.rawType, type,
-            getTypeIndexInArray(genericTypeNames, typeName.typeArguments.get(0)));
+        CodeBlock adapterTargetType = makeType(typeName, typesArray, genericTypeNames);
+        constructor.addStatement("this.$N = $N.adapter($L)",
+            moshiField, moshiInstance, adapterTargetType);
       } else if (genericTypeNames != null
           && getTypeIndexInArray(genericTypeNames, prop.type) >= 0) {
-        constructor.addStatement("this.$N = $N.adapter($N[$L])", field, moshi, type,
-            getTypeIndexInArray(genericTypeNames, prop.type));
+        // Property is a simple generic type (like "T"). Resolve the type at runtime through the
+        // types array passed through the constructor
+        constructor.addStatement("this.$N = $N.adapter($N[$L])", moshiField, moshiInstance,
+            typesArray, getTypeIndexInArray(genericTypeNames, prop.type));
       } else {
-        constructor.addStatement("this.$N = $N.adapter($L)", field, moshi, makeType(prop.type));
+        // Normal property
+        constructor.addStatement("this.$N = $N.adapter($L)", moshiField, moshiInstance,
+            makeType(prop.type, typesArray, genericTypeNames));
       }
     }
 
@@ -339,16 +373,23 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
   }
 
   private MethodSpec createAdapterMethod(TypeName autoValueClassName) {
+    TypeName rawClassName = autoValueClassName;
+    // Resolve the raw class name if it uses generics so we don't run in to a compilation error down
+    // the road when we reverence it with `N.class`
+    if (rawClassName instanceof ParameterizedTypeName)
+      rawClassName = ((ParameterizedTypeName) rawClassName).rawType;
     ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
     ParameterSpec methodName = ParameterSpec.builder(String.class, "methodName").build();
+    ParameterSpec declaredGenericType = ParameterSpec.builder(Type.class,
+        "declaredGenericType").build();
     return MethodSpec.methodBuilder("adapter")
         .addModifiers(PRIVATE)
-        .addParameters(ImmutableSet.of(moshi, methodName))
+        .addParameters(ImmutableSet.of(moshi, methodName, declaredGenericType))
         .returns(ADAPTER_CLASS_NAME)
         .addCode(CodeBlock.builder()
             .beginControlFlow("try")
             .addStatement("$T method = $T.class.getDeclaredMethod($N)",
-                Method.class, autoValueClassName, methodName)
+                Method.class, rawClassName, methodName)
             .addStatement("$T<$T> annotations = new $T<>()",
                 Set.class, Annotation.class, LinkedHashSet.class)
             .beginControlFlow("for ($T annotation : method.getAnnotations())", Annotation.class)
@@ -357,7 +398,18 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
             .addStatement("annotations.add(annotation)")
             .endControlFlow()
             .endControlFlow()
-            .addStatement("return $N.adapter(method.getGenericReturnType(), annotations)", moshi)
+            .addStatement("$T adapterType = method.getGenericReturnType()", Type.class)
+            .beginControlFlow("if (declaredGenericType != null)")
+            .beginControlFlow("if (adapterType instanceof $T)", ParameterizedType.class)
+            .addStatement("adapterType = $T.newParameterizedType((($T) adapterType).getRawType(), "
+                + "declaredGenericType)",
+                Types.class, ParameterizedType.class)
+            .endControlFlow()
+            .beginControlFlow("else if (adapterType instanceof $T)", TypeVariable.class)
+            .addStatement("adapterType = declaredGenericType")
+            .endControlFlow()
+            .endControlFlow()
+            .addStatement("return $N.adapter(adapterType, annotations)", moshi)
             .nextControlFlow("catch ($T e)", NoSuchMethodException.class)
             .addStatement("throw new RuntimeException(\"No method named \" + $N, e)", methodName)
             .endControlFlow()
@@ -493,14 +545,17 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     }
   }
 
-  private CodeBlock makeType(TypeName type) {
+  // typesArray and genericTypeNames only need to be non-null when using generic types
+  private CodeBlock makeType(TypeName type, ParameterSpec typesArray,
+      TypeVariableName[] genericTypeNames) {
+
     CodeBlock.Builder block = CodeBlock.builder();
     if (type instanceof ParameterizedTypeName) {
       ParameterizedTypeName pType = (ParameterizedTypeName) type;
       block.add("$T.newParameterizedType($T.class", Types.class, pType.rawType);
       for (TypeName typeArg : pType.typeArguments) {
         if (typeArg instanceof ParameterizedTypeName) {
-          block.add(", $L", makeType(typeArg));
+          block.add(", $L", makeType(typeArg, typesArray, genericTypeNames));
         } else if (typeArg instanceof WildcardTypeName) {
           WildcardTypeName wildcard = (WildcardTypeName) typeArg;
           TypeName target;
@@ -516,6 +571,9 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
                 "Unrepresentable wildcard type. Cannot have more than one bound: " + wildcard);
           }
           block.add(", $T.$L($T.class)", Types.class, method, target);
+        } else if (typeArg instanceof TypeVariableName) {
+          TypeVariableName genericType = (TypeVariableName) typeArg;
+          block.add(", $N[$L]", typesArray, getTypeIndexInArray(genericTypeNames, genericType));
         } else {
           block.add(", $T.class", typeArg);
         }

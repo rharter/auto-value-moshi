@@ -2,7 +2,12 @@ package com.ryanharter.auto.value.moshi.test;
 
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
+import com.squareup.moshi.Types;
 import org.junit.Test;
+
+import java.lang.reflect.Type;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
@@ -11,6 +16,7 @@ public final class AutoValueMoshiFunctionalTest {
   private final Moshi moshi = new Moshi.Builder()
       .add(FunctionalTestsAdapterFactory.create())
       .add(new ReverseList.JsonAdapter())
+      .add(new ReverseString.JsonAdapter())
       .build();
 
   @Test public void standardObject() throws Exception {
@@ -128,5 +134,37 @@ public final class AutoValueMoshiFunctionalTest {
 
     String toJson = adapter.toJson(fromJson);
     assertThat(toJson).isEqualTo("{\"value\":{\"a\":\"Some value\"}}");
+  }
+
+  @Test public void objectWithGenericsAndQualifiers() throws Exception {
+    Type type = Types.newParameterizedType(ObjectWithGenericsAndQualifiers.class, String.class,
+        Integer.class);
+    JsonAdapter<ObjectWithGenericsAndQualifiers<String, Integer>> adapter = moshi.adapter(type);
+
+    ObjectWithGenericsAndQualifiers<String, Integer> fromJson = adapter.fromJson("{\n"
+        + "  \"reversed_list\": [\"one\", \"two\", \"three\"],\n"
+        + "  \"reversedGeneric\": \"abc\",\n"
+        + "  \"reversedString\": \"def\",\n"
+        + "  \"normalString\": \"123\",\n"
+        + "  \"map\": {\n"
+        + "    \"foo\": 1,\n"
+        + "    \"bar\": 2\n"
+        + "  },\n"
+        + "  \"genericMap\": {\n"
+        + "    \"foo\": 1,\n"
+        + "    \"bar\": 2\n"
+        + "  }\n"
+        + "}");
+
+    Map<String, Integer> expectedMap = new HashMap<>();
+    expectedMap.put("foo", 1);
+    expectedMap.put("bar", 2);
+    assertThat(fromJson.map()).isEqualTo(expectedMap);
+    assertThat(fromJson.genericMap()).isEqualTo(expectedMap);
+
+    assertThat(fromJson.reversedList()).containsExactly("three", "two", "one");
+    assertThat(fromJson.reversedGeneric()).isEqualTo("cba");
+    assertThat(fromJson.reversedString()).isEqualTo("fed");
+    assertThat(fromJson.normalString()).isEqualTo("123");
   }
 }
