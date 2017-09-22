@@ -7,7 +7,7 @@
   <property name="severity" value="error"/>
 
   <module name="NewlineAtEndOfFile"/>
-  <module name="FileLength"/>
+  <!--<module name="FileLength"/>-->
   <module name="FileTabCharacter"/>
 
   <!-- Unnecessary empty lines -->
