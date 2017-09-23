@@ -388,7 +388,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         .returns(ADAPTER_CLASS_NAME)
         .addCode(CodeBlock.builder()
             .beginControlFlow("try")
-            .addStatement("$T method = $T.class.getDeclaredMethod($N)",
+            .addStatement("$T method = $T.class.getMethod($N)",
                 Method.class, rawClassName, methodName)
             .addStatement("$T<$T> annotations = new $T<>()",
                 Set.class, Annotation.class, LinkedHashSet.class)
