@@ -60,11 +60,11 @@ Moshi moshi = new Moshi.Builder()
 Add a Gradle dependency:
 
 ```groovy
-annotationProcessor 'com.ryanharter.auto.value:auto-value-moshi:0.4.3'
+annotationProcessor 'com.ryanharter.auto.value:auto-value-moshi:0.4.4'
 
 // if you use the @MoshiAdapterFactory annotation, you'll need to add the 'annotations' artifact 
 // as a provided dependency:
-provided 'com.ryanharter.auto.value:auto-value-moshi-annotations:0.4.3'
+provided 'com.ryanharter.auto.value:auto-value-moshi-annotations:0.4.4'
 ```
 
 ## License

@@ -1,5 +1,15 @@
 # Change Log
 
+## Version 0.4.4 (2017-10-03)
+
+* Use getMethod() instead of getDeclaredMethod(). (#94)
+* Add support for generic types with JsonQualifiers (#92)
+* use annotationProcessor instead of apt for gradle (#91)
+* Only match on actual return type, not any parameterized type (#85)
+* Bump dependencies and include `idea` plugin (#84)
+* Call value method only once if property is nullable. (#81)
+* Set auto-service to compileOnly (#80)
+
 ## Version 0.4.3 (2017-02-13)
 
 * Doesn't generate redundant static JsonAdapter method. (#72)
