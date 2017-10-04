@@ -9,6 +9,7 @@ ext {
         autoService   : '1.0-rc2',
         autoCommon    : '0.6',
         moshi         : '1.4.0',
+        jsr305        : '3.0.2',
         // For testing
         junit         : '4.12',
         truth         : '0.32',
@@ -22,6 +23,7 @@ ext {
         autoService   : "com.google.auto.service:auto-service:$versions.autoService",
         autoCommon    : "com.google.auto:auto-common:$versions.autoCommon",
         moshi         : "com.squareup.moshi:moshi:$versions.moshi",
+        jsr305        : "com.google.code.findbugs:jsr305:$versions.jsr305",
 
         junit         : "junit:junit:$versions.junit",
         truth         : "com.google.truth:truth:$versions.truth",

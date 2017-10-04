@@ -153,7 +153,8 @@ public final class AutoValueMoshiFunctionalTest {
         + "  \"genericMap\": {\n"
         + "    \"foo\": 1,\n"
         + "    \"bar\": 2\n"
-        + "  }\n"
+        + "  },\n"
+        + "  \"genericSimple\":\"ghi\""
         + "}");
 
     Map<String, Integer> expectedMap = new HashMap<>();
@@ -166,5 +167,55 @@ public final class AutoValueMoshiFunctionalTest {
     assertThat(fromJson.reversedGeneric()).isEqualTo("cba");
     assertThat(fromJson.reversedString()).isEqualTo("fed");
     assertThat(fromJson.normalString()).isEqualTo("123");
+    assertThat(fromJson.genericSimple()).isEqualTo("ghi");
+  }
+
+  @Test
+  public void objectWithNullableClassNonNull() throws Exception {
+    JsonAdapter<WithNullableClass> adapter = moshi.adapter(WithNullableClass.class);
+
+    WithNullableClass fromJson = adapter.fromJson("{\"value\":\"value\","
+            + "\"nullableClass\":{\"string\":\"string\"}}");
+
+    assertThat(fromJson.value()).isEqualTo("value");
+    assertThat(fromJson.nullableClass()).isNotNull();
+    assertThat(fromJson.nullableClass().string()).isEqualTo("string");
+  }
+
+  @Test
+  public void objectWithNullableClassNull() throws Exception {
+    JsonAdapter<WithNullableClass> adapter = moshi.adapter(WithNullableClass.class);
+
+    WithNullableClass fromJson = adapter.fromJson("{\"value\":\"value\","
+            + "\"nullableClass\":null}");
+
+    assertThat(fromJson.value()).isEqualTo("value");
+    assertThat(fromJson.nullableClass()).isNull();
+  }
+
+  @Test
+  public void objectWithNullableClassAndJsonQualifier() throws Exception {
+    JsonAdapter<WithNullableClassAndJsonQualifier> adapter =
+            moshi.adapter(WithNullableClassAndJsonQualifier.class);
+
+    WithNullableClassAndJsonQualifier fromJson = adapter.fromJson("{\"value\":\"value\","
+            + "\"list\":[\"string1\",\"string2\"]}");
+
+    assertThat(fromJson.value()).isEqualTo("value");
+    assertThat(fromJson.list()).isNotNull();
+    assertThat(fromJson.list().size()).isEqualTo(2);
+    assertThat(fromJson.list()).containsExactly("string2", "string1");
+  }
+
+  @Test
+  public void objectWithNullableClassAndJsonQualifierNull() throws Exception {
+    JsonAdapter<WithNullableClassAndJsonQualifier> adapter =
+            moshi.adapter(WithNullableClassAndJsonQualifier.class);
+
+    WithNullableClassAndJsonQualifier fromJson = adapter.fromJson("{\"value\":\"value\","
+            + "\"list\":null}");
+
+    assertThat(fromJson.value()).isEqualTo("value");
+    assertThat(fromJson.list()).isNull();
   }
 }
