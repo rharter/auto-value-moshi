@@ -16,6 +16,7 @@ import java.util.Map;
   public abstract String normalString();
   public abstract Map<T, U> map();
   public abstract Map<String, U> genericMap();
+  public abstract T genericSimple();
 
   public static <T, U> JsonAdapter<ObjectWithGenericsAndQualifiers<T, U>> jsonAdapter(Moshi moshi,
       Type[] types) {

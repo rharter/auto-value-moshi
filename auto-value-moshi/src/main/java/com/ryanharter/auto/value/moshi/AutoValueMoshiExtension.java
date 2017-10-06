@@ -272,7 +272,8 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       constructor.addParameter(typesArray);
     }
 
-    boolean needsAdapterMethod = false;
+    boolean needsAdapterWithQualifierMethod = false;
+    boolean needsAdaperMethod = false;
     List<String> names = Lists.newArrayListWithCapacity(adapters.size());
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
@@ -299,37 +300,45 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         Element annotationType = annotationMirror.getAnnotationType().asElement();
         if (annotationType.getAnnotation(JsonQualifier.class) != null) {
           usesJsonQualifier = true;
-          needsAdapterMethod = true;
+          needsAdapterWithQualifierMethod = true;
         }
       }
 
+      // if the property is @Nullable, we append a .nullSafe() to the adapter
+      String nullableOrNothing = prop.nullable() ? ".nullSafe()" : "";
+
       if (!usedDeclaredGenericTypeNames.isEmpty() && usesJsonQualifier) {
         // Property uses generics and JsonQualifiers
-        needsAdapterMethod = true;
-        constructor.addStatement("this.$N = adapter($N, $S, $N[$L])",
-            moshiField, moshiInstance, prop.methodName, typesArray,
-            getTypeIndexInArray(genericTypeNames, usedDeclaredGenericTypeNames.get(0)));
+        needsAdapterWithQualifierMethod = true;
+        constructor.addStatement("this.$N = adapterWithQualifier($N, $S, $N[$L])$L",
+                moshiField, moshiInstance, prop.methodName, typesArray,
+                getTypeIndexInArray(genericTypeNames, usedDeclaredGenericTypeNames.get(0)),
+                nullableOrNothing);
       } else if (usesJsonQualifier) {
         // Property only uses JsonQualifiers
-        constructor.addStatement("this.$N = adapter($N, $S, null)", moshiField, moshiInstance,
-            prop.methodName);
+        needsAdapterWithQualifierMethod = true;
+        constructor.addStatement("this.$N = adapterWithQualifier($N, $S, null)$L", moshiField,
+            moshiInstance, prop.methodName, nullableOrNothing);
       } else if (genericTypeNames != null && prop.type instanceof ParameterizedTypeName) {
         // Property is a parameterized type that may or may not use generics (like "List<T>" or
         // "List<String>"
+        needsAdaperMethod = true;
         ParameterizedTypeName typeName = ((ParameterizedTypeName) prop.type);
         CodeBlock adapterTargetType = makeType(typeName, typesArray, genericTypeNames);
-        constructor.addStatement("this.$N = $N.adapter($L)",
-            moshiField, moshiInstance, adapterTargetType);
+        constructor.addStatement("this.$N = adapter($N, $L)$L",
+                moshiField, moshiInstance, adapterTargetType, nullableOrNothing);
       } else if (genericTypeNames != null
           && getTypeIndexInArray(genericTypeNames, prop.type) >= 0) {
         // Property is a simple generic type (like "T"). Resolve the type at runtime through the
         // types array passed through the constructor
-        constructor.addStatement("this.$N = $N.adapter($N[$L])", moshiField, moshiInstance,
-            typesArray, getTypeIndexInArray(genericTypeNames, prop.type));
+        needsAdaperMethod = true;
+        constructor.addStatement("this.$N = adapter($N, $N[$L]$L)", moshiField, moshiInstance,
+                typesArray, getTypeIndexInArray(genericTypeNames, prop.type), nullableOrNothing);
       } else {
         // Normal property
-        constructor.addStatement("this.$N = $N.adapter($L)", moshiField, moshiInstance,
-            makeType(prop.type, typesArray, genericTypeNames));
+        needsAdaperMethod = true;
+        constructor.addStatement("this.$N = adapter($N, $L)$L", moshiField, moshiInstance,
+                makeType(prop.type, typesArray, genericTypeNames), nullableOrNothing);
       }
     }
 
@@ -356,8 +365,12 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       classBuilder.addTypeVariables(Arrays.asList(genericTypeNames));
     }
 
-    if (needsAdapterMethod) {
-      classBuilder.addMethod(createAdapterMethod(autoValueClassName));
+    if (needsAdaperMethod) {
+      classBuilder.addMethod(createAdapterMethod());
+    }
+
+    if (needsAdapterWithQualifierMethod) {
+      classBuilder.addMethod(createAdapterWithQualifierMethod(autoValueClassName));
     }
 
     return classBuilder.build();
@@ -372,7 +385,20 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     });
   }
 
-  private MethodSpec createAdapterMethod(TypeName autoValueClassName) {
+  private MethodSpec createAdapterMethod() {
+    ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
+    ParameterSpec type = ParameterSpec.builder(Type.class, "adapterType").build();
+    return MethodSpec.methodBuilder("adapter")
+        .addModifiers(PRIVATE)
+        .addParameters(ImmutableSet.of(moshi, type))
+        .returns(ADAPTER_CLASS_NAME)
+        .addCode(CodeBlock.builder()
+            .addStatement("return $N.adapter(adapterType)", moshi)
+            .build())
+        .build();
+  }
+
+  private MethodSpec createAdapterWithQualifierMethod(TypeName autoValueClassName) {
     TypeName rawClassName = autoValueClassName;
     // Resolve the raw class name if it uses generics so we don't run in to a compilation error down
     // the road when we reverence it with `N.class`
@@ -382,7 +408,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     ParameterSpec methodName = ParameterSpec.builder(String.class, "methodName").build();
     ParameterSpec declaredGenericType = ParameterSpec.builder(Type.class,
         "declaredGenericType").build();
-    return MethodSpec.methodBuilder("adapter")
+    return MethodSpec.methodBuilder("adapterWithQualifier")
         .addModifiers(PRIVATE)
         .addParameters(ImmutableSet.of(moshi, methodName, declaredGenericType))
         .returns(ADAPTER_CLASS_NAME)

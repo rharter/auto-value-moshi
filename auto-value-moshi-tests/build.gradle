@@ -8,6 +8,7 @@ targetCompatibility = versions.java
 dependencies {
   compile libraries.moshi
 
+  compileOnly libraries.jsr305
   compileOnly project(':auto-value-moshi')
   apt project(':auto-value-moshi')
 
