@@ -23,6 +23,20 @@ using `@Json` to define an alternate name for de/serialization.
 
 Now build your project and de/serialize your Foo.
 
+## Generics support
+
+If the annotated class uses generics, the static method needs a little modification. Simply add a `Type[]` parameter and pass it to the generated `MoshiJsonAdapter` class.
+
+```java
+@AutoValue public abstract class Foo<T> {
+    abstract T data();
+    
+    public static JsonAdapter<Foo<T>> jsonAdapter(Moshi moshi, Type[] types) {
+        return new AutoValue_Foo.MoshiJsonAdapter(moshi, types);
+    }
+}
+```
+
 ## Factory
 
 Optionally, auto-value-moshi can create a single [JsonAdapter.Factory](http://square.github.io/moshi/1.x/moshi/com/squareup/moshi/JsonAdapter.Factory.html) so
