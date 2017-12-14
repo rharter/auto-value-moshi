@@ -1,5 +1,9 @@
 # Change Log
 
+## Version 0.4.5 (2017-12-14)
+
+* User nullSafe adapters for @Nullable properties (#95)
+
 ## Version 0.4.4 (2017-10-03)
 
 * Use getMethod() instead of getDeclaredMethod(). (#94)
