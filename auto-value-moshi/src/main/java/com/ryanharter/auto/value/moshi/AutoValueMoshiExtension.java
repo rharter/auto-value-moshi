@@ -386,12 +386,14 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
   }
 
   private MethodSpec createAdapterMethod() {
+    TypeVariableName t = TypeVariableName.get("T");
     ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
     ParameterSpec type = ParameterSpec.builder(Type.class, "adapterType").build();
     return MethodSpec.methodBuilder("adapter")
+        .addTypeVariable(t)
         .addModifiers(PRIVATE)
         .addParameters(ImmutableSet.of(moshi, type))
-        .returns(ADAPTER_CLASS_NAME)
+        .returns(ParameterizedTypeName.get(ADAPTER_CLASS_NAME, t))
         .addCode(CodeBlock.builder()
             .addStatement("return $N.adapter(adapterType)", moshi)
             .build())
