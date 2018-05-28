@@ -332,7 +332,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
         // Property is a simple generic type (like "T"). Resolve the type at runtime through the
         // types array passed through the constructor
         needsAdaperMethod = true;
-        constructor.addStatement("this.$N = adapter($N, $N[$L]$L)", moshiField, moshiInstance,
+        constructor.addStatement("this.$N = adapter($N, $N[$L])$L", moshiField, moshiInstance,
                 typesArray, getTypeIndexInArray(genericTypeNames, prop.type), nullableOrNothing);
       } else {
         // Normal property
