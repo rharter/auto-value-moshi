@@ -90,15 +90,22 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     }
 
     boolean nullable() {
-      return annotations.contains("Nullable");
+      return nullableAnnotation() != null;
+    }
+
+    public String nullableAnnotation() {
+      for (String annotationString : annotations) {
+        if (annotationString.equals("@Nullable") || annotationString.endsWith(".Nullable")) {
+          return annotationString;
+        }
+      }
+      return null;
     }
 
     private ImmutableSet<String> buildAnnotations(ExecutableElement element) {
       ImmutableSet.Builder<String> builder = ImmutableSet.builder();
-
-      List<? extends AnnotationMirror> annotations = element.getAnnotationMirrors();
-      for (AnnotationMirror annotation : annotations) {
-        builder.add(annotation.getAnnotationType().asElement().getSimpleName().toString());
+      for (AnnotationMirror annotation : element.getAnnotationMirrors()) {
+        builder.add(annotation.getAnnotationType().asElement().toString());
       }
 
       return builder.build();
@@ -156,8 +163,6 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
       boolean isFinal) {
     List<Property> properties = readProperties(context.properties());
 
-    Map<String, TypeName> types = convertPropertiesToTypes(context.properties());
-
     List<? extends TypeParameterElement> typeParams = context.autoValueClass().getTypeParameters();
     boolean shouldCreateGenerics = typeParams != null && typeParams.size() > 0;
 
@@ -187,7 +192,7 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     TypeSpec.Builder subclass = TypeSpec.classBuilder(className)
         .superclass(superclass)
         .addType(typeAdapter)
-        .addMethod(generateConstructor(types));
+        .addMethod(generateConstructor(properties));
 
     if (shouldCreateGenerics) {
       subclass.addTypeVariables(Arrays.asList(genericTypeNames));
@@ -223,35 +228,30 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
     return fields.build();
   }
 
-  private MethodSpec generateConstructor(Map<String, TypeName> properties) {
-    List<ParameterSpec> params = Lists.newArrayList();
-    for (Map.Entry<String, TypeName> entry : properties.entrySet()) {
-      params.add(ParameterSpec.builder(entry.getValue(), entry.getKey()).build());
+  private MethodSpec generateConstructor(List<Property> properties) {
+    List<ParameterSpec> params = Lists.newArrayListWithCapacity(properties.size());
+    for (Property property : properties) {
+      ParameterSpec.Builder builder = ParameterSpec.builder(property.type, property.humanName);
+      if (property.nullable()) {
+        builder.addAnnotation(ClassName.bestGuess(property.nullableAnnotation()));
+      }
+      params.add(builder.build());
     }
 
     MethodSpec.Builder builder = MethodSpec.constructorBuilder()
         .addParameters(params);
 
     StringBuilder superFormat = new StringBuilder("super(");
-    for (int i = properties.size(); i > 0; i--) {
+    List<ParameterSpec> args = new ArrayList<>();
+    for (int i = 0, n = params.size(); i < n; i++) {
+      args.add(params.get(i));
       superFormat.append("$N");
-      if (i > 1) superFormat.append(", ");
+      if (i < n - 1) superFormat.append(", ");
     }
     superFormat.append(")");
-    builder.addStatement(superFormat.toString(), properties.keySet().toArray());
+    builder.addStatement(superFormat.toString(), args.toArray());
 
     return builder.build();
-  }
-
-  /** Converts the ExecutableElement properties to TypeName properties. */
-  private Map<String, TypeName> convertPropertiesToTypes(
-      Map<String, ExecutableElement> properties) {
-    Map<String, TypeName> types = new LinkedHashMap<>();
-    for (Map.Entry<String, ExecutableElement> entry : properties.entrySet()) {
-      ExecutableElement el = entry.getValue();
-      types.put(entry.getKey(), TypeName.get(el.getReturnType()));
-    }
-    return types;
   }
 
   private TypeSpec createTypeAdapter(ClassName className, TypeName autoValueClassName,
