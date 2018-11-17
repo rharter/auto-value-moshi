@@ -2,33 +2,34 @@ import org.gradle.internal.jvm.Jvm
 
 ext {
     versions = [
-        java          : JavaVersion.VERSION_1_7,
+        java          : JavaVersion.VERSION_1_8,
         // Main dependencies
-        javaPoet      : '1.7.0',
-        autoValue     : '1.3',
-        autoService   : '1.0-rc2',
-        autoCommon    : '0.6',
-        moshi         : '1.4.0',
+        javaPoet      : '1.11.0',
+        autoValue     : '1.6.3rc1',
+        autoService   : '1.0-rc4',
+        autoCommon    : '0.10',
+        moshi         : '1.7.0',
         jsr305        : '3.0.2',
         // For testing
         junit         : '4.12',
-        truth         : '0.32',
-        compileTesting: '0.9',
+        truth         : '0.42',
+        compileTesting: '0.15',
         assertJ       : '2.5.0',
     ]
 
     libraries = [
-        javaPoet      : "com.squareup:javapoet:$versions.javaPoet",
-        autoValue     : "com.google.auto.value:auto-value:$versions.autoValue",
-        autoService   : "com.google.auto.service:auto-service:$versions.autoService",
-        autoCommon    : "com.google.auto:auto-common:$versions.autoCommon",
-        moshi         : "com.squareup.moshi:moshi:$versions.moshi",
-        jsr305        : "com.google.code.findbugs:jsr305:$versions.jsr305",
+        javaPoet            : "com.squareup:javapoet:$versions.javaPoet",
+        autoValue           : "com.google.auto.value:auto-value:$versions.autoValue",
+        autoValueAnnotations: "com.google.auto.value:auto-value-annotations:$versions.autoValue",
+        autoService         : "com.google.auto.service:auto-service:$versions.autoService",
+        autoCommon          : "com.google.auto:auto-common:$versions.autoCommon",
+        moshi               : "com.squareup.moshi:moshi:$versions.moshi",
+        jsr305              : "com.google.code.findbugs:jsr305:$versions.jsr305",
 
-        junit         : "junit:junit:$versions.junit",
-        truth         : "com.google.truth:truth:$versions.truth",
-        compileTesting: "com.google.testing.compile:compile-testing:$versions.compileTesting",
-        toolsJar      : files(Jvm.current().getToolsJar()),
-        assertJ       : "org.assertj:assertj-core:$versions.assertJ"
+        junit               : "junit:junit:$versions.junit",
+        truth               : "com.google.truth:truth:$versions.truth",
+        compileTesting      : "com.google.testing.compile:compile-testing:$versions.compileTesting",
+        toolsJar            : files(Jvm.current().getToolsJar()),
+        assertJ             : "org.assertj:assertj-core:$versions.assertJ"
     ]
 }

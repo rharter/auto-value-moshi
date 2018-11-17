@@ -8,6 +8,7 @@ dependencies {
   compile project(':auto-value-moshi-annotations')
   compile libraries.javaPoet
   compile libraries.autoValue
+  compile libraries.autoValueAnnotations
   compileOnly libraries.autoService
   compile libraries.autoCommon
   compile libraries.moshi
