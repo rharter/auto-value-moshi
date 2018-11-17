@@ -117,7 +117,10 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
         MoshiAdapterFactory annotation = element.getAnnotation(MoshiAdapterFactory.class);
         boolean requestNullSafeAdapters = annotation.nullSafe();
 
-        TypeSpec jsonAdapterFactory = createJsonAdapterFactory(type, elements, packageName, adapterName,
+        TypeSpec jsonAdapterFactory = createJsonAdapterFactory(type,
+            elements,
+            packageName,
+            adapterName,
             requestNullSafeAdapters);
         JavaFile file = JavaFile.builder(packageName, jsonAdapterFactory).build();
         try {
@@ -133,8 +136,11 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
     return false;
   }
 
-  private TypeSpec createJsonAdapterFactory(TypeElement sourceElement, List<Element> elements, String packageName,
-      String factoryName, boolean requestNullSafeAdapters) {
+  private TypeSpec createJsonAdapterFactory(TypeElement sourceElement,
+      List<Element> elements,
+      String packageName,
+      String factoryName,
+      boolean requestNullSafeAdapters) {
     TypeSpec.Builder factory =
         TypeSpec.classBuilder(ClassName.get(packageName, "AutoValueMoshi_" + factoryName));
     factory.addOriginatingElement(sourceElement);
