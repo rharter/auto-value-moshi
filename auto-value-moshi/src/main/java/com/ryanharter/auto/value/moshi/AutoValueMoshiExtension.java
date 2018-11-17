@@ -28,6 +28,7 @@ import com.squareup.moshi.Moshi;
 import com.squareup.moshi.Types;
 
 import javax.annotation.processing.Messager;
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
@@ -110,6 +111,11 @@ public class AutoValueMoshiExtension extends AutoValueExtension {
 
       return builder.build();
     }
+  }
+
+  @Override
+  public IncrementalExtensionType incrementalType(ProcessingEnvironment processingEnvironment) {
+    return IncrementalExtensionType.ISOLATING;
   }
 
   @Override public boolean applicable(Context context) {
