@@ -1,6 +1,5 @@
 apply plugin: 'net.ltgt.apt'
 apply plugin: 'java'
-apply plugin: 'idea'
 
 sourceCompatibility = versions.java
 targetCompatibility = versions.java
