@@ -2,7 +2,7 @@ import org.gradle.internal.jvm.Jvm
 
 ext {
     versions = [
-        java          : JavaVersion.VERSION_1_7,
+        java          : JavaVersion.VERSION_1_8,
         // Main dependencies
         javaPoet      : '1.7.0',
         autoValue     : '1.3',
