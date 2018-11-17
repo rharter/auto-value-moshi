@@ -17,7 +17,6 @@ import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
 
 import net.ltgt.gradle.incap.IncrementalAnnotationProcessor;
-import net.ltgt.gradle.incap.IncrementalAnnotationProcessorType;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
@@ -118,7 +117,7 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
         MoshiAdapterFactory annotation = element.getAnnotation(MoshiAdapterFactory.class);
         boolean requestNullSafeAdapters = annotation.nullSafe();
 
-        TypeSpec jsonAdapterFactory = createJsonAdapterFactory(elements, packageName, adapterName,
+        TypeSpec jsonAdapterFactory = createJsonAdapterFactory(type, elements, packageName, adapterName,
             requestNullSafeAdapters);
         JavaFile file = JavaFile.builder(packageName, jsonAdapterFactory).build();
         try {
@@ -134,10 +133,11 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
     return false;
   }
 
-  private TypeSpec createJsonAdapterFactory(List<Element> elements, String packageName,
+  private TypeSpec createJsonAdapterFactory(TypeElement sourceElement, List<Element> elements, String packageName,
       String factoryName, boolean requestNullSafeAdapters) {
     TypeSpec.Builder factory =
         TypeSpec.classBuilder(ClassName.get(packageName, "AutoValueMoshi_" + factoryName));
+    factory.addOriginatingElement(sourceElement);
     factory.addModifiers(PUBLIC, FINAL);
     factory.superclass(ClassName.get(packageName, factoryName));
 
@@ -162,6 +162,7 @@ public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
 
     for (int i = 0; i < elements.size(); i++) {
       Element element = elements.get(i);
+      factory.addOriginatingElement(element);
       TypeName elementTypeName = TypeName.get(element.asType());
 
       if (elementTypeName instanceof ParameterizedTypeName) {
