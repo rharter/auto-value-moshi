@@ -5,6 +5,9 @@ sourceCompatibility = versions.java
 targetCompatibility = versions.java
 
 dependencies {
+  compileOnly("net.ltgt.gradle.incap:incap:0.2")
+  annotationProcessor("net.ltgt.gradle.incap:incap-processor:0.2")
+  
   compile project(':auto-value-moshi-annotations')
   compile libraries.javaPoet
   compile libraries.autoValue

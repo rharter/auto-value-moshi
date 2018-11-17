@@ -16,6 +16,9 @@ import com.squareup.javapoet.WildcardTypeName;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
 
+import net.ltgt.gradle.incap.IncrementalAnnotationProcessor;
+import net.ltgt.gradle.incap.IncrementalAnnotationProcessorType;
+
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.ParameterizedType;
@@ -46,6 +49,7 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.tools.Diagnostic.Kind.ERROR;
+import static net.ltgt.gradle.incap.IncrementalAnnotationProcessorType.AGGREGATING;
 
 /**
  * Annotation Processor responsible for the generation of the {@link JsonAdapter.Factory} class
@@ -53,6 +57,7 @@ import static javax.tools.Diagnostic.Kind.ERROR;
  *
  * @author rharter
  */
+@IncrementalAnnotationProcessor(AGGREGATING)
 @AutoService(Processor.class)
 public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
   private static final ParameterSpec TYPE_SPEC = ParameterSpec.builder(Type.class, "type").build();
