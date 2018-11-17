@@ -1341,7 +1341,8 @@ public final class AutoValueMoshiExtensionTest {
         + "  public abstract String b();\n"
         + "}\n"
     );
-    JavaFileObject expected = JavaFileObjects.forSourceString("test/AutoValue_Foo", "package test;\n"
+    JavaFileObject expected = JavaFileObjects.forSourceString("test/AutoValue_Foo",
+            "package test;\n"
         + "\n"
         + "import javax.annotation.Generated;\n"
         + "\n"
