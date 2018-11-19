@@ -1,5 +1,5 @@
 plugins {
-  id 'java'
+  id 'java-library'
   id 'maven-publish'
 }
 
@@ -11,18 +11,18 @@ dependencies {
   annotationProcessor libraries.autoService
   compileOnly libraries.incap
   compileOnly libraries.autoService
-  
-  compile project(':auto-value-moshi-annotations')
-  compile libraries.javaPoet
-  compile libraries.autoValue
-  compile libraries.autoValueAnnotations
-  compile libraries.autoCommon
-  compile libraries.moshi
 
-  testCompile libraries.junit
-  testCompile libraries.truth
-  testCompile libraries.compileTesting
-  testCompile libraries.toolsJar
+  api libraries.autoValue
+  api libraries.autoValueAnnotations
+  api project(':auto-value-moshi-annotations')
+  implementation libraries.javaPoet
+  implementation libraries.autoCommon
+  implementation libraries.moshi
+
+  testImplementation libraries.junit
+  testImplementation libraries.truth
+  testImplementation libraries.compileTesting
+  testImplementation libraries.toolsJar
 }
 
 apply from: rootProject.file('gradle/gradle-mvn-push.gradle')
