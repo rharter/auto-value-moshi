@@ -1,7 +1,34 @@
 plugins {
+  id 'com.github.johnrengelman.shadow' version '4.0.1'
   id 'java-library'
   id 'maven-publish'
 }
+
+//<editor-fold desc="ShadowJar configuration">
+// disable default jar tasks
+configurations.runtimeOnly.artifacts.removeAll { it.archiveTask.is jar }
+tasks.getByName('jar').enabled = false
+// create extra configuration for shaded dependencies, so they're not included in the pom
+def shadedConfig = configurations.create('compileShaded')
+configurations.compileOnly.extendsFrom(shadedConfig)
+shadowJar {
+  minimize()
+  classifier = ''
+  configurations = [shadedConfig]
+  relocate 'com.google.common', 'autovaluemoshi.shaded.com.google.common'
+  relocate 'com.google.thirdparty', 'autovaluemoshi.shaded.com.google.thirdparty'
+  exclude 'afu/**'
+  exclude 'org/**'
+  exclude 'com/google/errorprone/annotations/**'
+  exclude 'com/google/j2objc/annotations/**'
+  exclude 'javax/**'
+  exclude 'META-INF/maven/**'
+}
+artifacts {
+  runtime shadowJar
+  archives shadowJar
+}
+//</editor-fold>
 
 sourceCompatibility = versions.java
 targetCompatibility = versions.java
@@ -15,7 +42,7 @@ dependencies {
   api libraries.autoValue
   api libraries.autoValueAnnotations
   api project(':auto-value-moshi-annotations')
-  implementation libraries.guava
+  compileShaded libraries.guava
   implementation libraries.javaPoet
   implementation libraries.moshi
 
