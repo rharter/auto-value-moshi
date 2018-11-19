@@ -25,8 +25,8 @@ ext {
         autoService         : "com.google.auto.service:auto-service:$versions.autoService",
         autoCommon          : "com.google.auto:auto-common:$versions.autoCommon",
         moshi               : "com.squareup.moshi:moshi:$versions.moshi",
-        incapProcessor      : "net.ltgt.gradle.incap:incap-processor:${versions.incapHelper}",
         incap               : "net.ltgt.gradle.incap:incap:${versions.incapHelper}",
+        incapProcessor      : "net.ltgt.gradle.incap:incap-processor:${versions.incapHelper}",
         jsr305              : "com.google.code.findbugs:jsr305:$versions.jsr305",
 
         junit               : "junit:junit:$versions.junit",
