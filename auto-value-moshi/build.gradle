@@ -15,8 +15,8 @@ dependencies {
   api libraries.autoValue
   api libraries.autoValueAnnotations
   api project(':auto-value-moshi-annotations')
+  implementation libraries.guava
   implementation libraries.javaPoet
-  implementation libraries.autoCommon
   implementation libraries.moshi
 
   testImplementation libraries.junit
