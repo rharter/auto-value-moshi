@@ -1,4 +1,3 @@
-apply plugin: 'net.ltgt.apt'
 apply plugin: 'java'
 apply plugin: 'maven-publish'
 
@@ -6,8 +5,8 @@ sourceCompatibility = versions.java
 targetCompatibility = versions.java
 
 dependencies {
-  apt "net.ltgt.gradle.incap:incap-processor:0.2"
-  apt libraries.autoService
+  annotationProcessor "net.ltgt.gradle.incap:incap-processor:0.2"
+  annotationProcessor libraries.autoService
   compileOnly "net.ltgt.gradle.incap:incap:0.2"
   compileOnly libraries.autoService
   

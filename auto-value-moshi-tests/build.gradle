@@ -9,7 +9,7 @@ dependencies {
 
   compileOnly libraries.jsr305
   compileOnly project(':auto-value-moshi')
-  apt project(':auto-value-moshi')
+  annotationProcessor project(':auto-value-moshi')
 
   testCompile libraries.junit
   testCompile libraries.assertJ
