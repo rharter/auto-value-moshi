@@ -1,5 +1,7 @@
-apply plugin: 'java'
-apply plugin: 'maven-publish'
+plugins {
+  id 'java'
+  id 'maven-publish'
+}
 
 sourceCompatibility = versions.java
 targetCompatibility = versions.java
