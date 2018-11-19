@@ -9,6 +9,7 @@ ext {
         autoService   : '1.0-rc4',
         autoCommon    : '0.10',
         moshi         : '1.7.0',
+        incapHelper   : '0.2',
         jsr305        : '3.0.2',
         // For testing
         junit         : '4.12',
@@ -24,6 +25,8 @@ ext {
         autoService         : "com.google.auto.service:auto-service:$versions.autoService",
         autoCommon          : "com.google.auto:auto-common:$versions.autoCommon",
         moshi               : "com.squareup.moshi:moshi:$versions.moshi",
+        incap               : "net.ltgt.gradle.incap:incap:${versions.incapHelper}",
+        incapProcessor      : "net.ltgt.gradle.incap:incap-processor:${versions.incapHelper}",
         jsr305              : "com.google.code.findbugs:jsr305:$versions.jsr305",
 
         junit               : "junit:junit:$versions.junit",

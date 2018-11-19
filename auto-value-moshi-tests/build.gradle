@@ -5,11 +5,12 @@ sourceCompatibility = versions.java
 targetCompatibility = versions.java
 
 dependencies {
-  compile libraries.moshi
-
+  annotationProcessor libraries.incap // https://github.com/google/auto/issues/615#issuecomment-438045951
+  annotationProcessor project(':auto-value-moshi')
   compileOnly libraries.jsr305
   compileOnly project(':auto-value-moshi')
-  apt project(':auto-value-moshi')
+
+  compile libraries.moshi
 
   testCompile libraries.junit
   testCompile libraries.assertJ

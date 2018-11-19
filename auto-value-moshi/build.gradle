@@ -5,11 +5,15 @@ sourceCompatibility = versions.java
 targetCompatibility = versions.java
 
 dependencies {
+  annotationProcessor libraries.incapProcessor
+  annotationProcessor libraries.autoService
+  compileOnly libraries.incap
+  compileOnly libraries.autoService
+  
   compile project(':auto-value-moshi-annotations')
   compile libraries.javaPoet
   compile libraries.autoValue
   compile libraries.autoValueAnnotations
-  compileOnly libraries.autoService
   compile libraries.autoCommon
   compile libraries.moshi
 
