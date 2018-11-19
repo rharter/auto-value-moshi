@@ -43,7 +43,6 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
-import static com.ryanharter.auto.value.moshi.AutoValueMoshiExtension.ADAPTER_CLASS_NAME;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -58,7 +57,8 @@ import static net.ltgt.gradle.incap.IncrementalAnnotationProcessorType.AGGREGATI
  */
 @IncrementalAnnotationProcessor(AGGREGATING)
 @AutoService(Processor.class)
-public class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
+public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcessor {
+  private static final ClassName ADAPTER_CLASS_NAME = ClassName.get(JsonAdapter.class);
   private static final ParameterSpec TYPE_SPEC = ParameterSpec.builder(Type.class, "type").build();
   private static final WildcardTypeName WILDCARD_TYPE_NAME =
       WildcardTypeName.subtypeOf(Annotation.class);
