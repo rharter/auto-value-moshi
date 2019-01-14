@@ -166,7 +166,8 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
     // Avoid providing an adapter for an annotated type.
     create.addStatement("if (!$N.isEmpty()) return null", annotations)
         .addStatement("$T rawType = $T.getRawType($N)",
-            ParameterizedTypeName.get(ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)),
+            ParameterizedTypeName.get(ClassName.get(Class.class),
+                WildcardTypeName.subtypeOf(Object.class)),
             com.squareup.moshi.Types.class,
             type);
 
