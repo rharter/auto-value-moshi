@@ -164,22 +164,26 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
     int numClasses = 0;
 
     // Avoid providing an adapter for an annotated type.
-    create.addStatement("if (!$N.isEmpty()) return null", annotations);
+    create.addStatement("if (!$N.isEmpty()) return null", annotations)
+        .addStatement("$T rawType = $T.getRawType($N)",
+            ParameterizedTypeName.get(ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)),
+            com.squareup.moshi.Types.class,
+            type);
 
-    for (int i = 0; i < elements.size(); i++) {
-      Element element = elements.get(i);
+    for (Element element : elements) {
       factory.addOriginatingElement(element);
       TypeName elementTypeName = TypeName.get(element.asType());
 
       if (elementTypeName instanceof ParameterizedTypeName) {
         if (generics == null) {
           generics = CodeBlock.builder()
-              .beginControlFlow("if ($N instanceof $T)", type, ParameterizedType.class)
-              .addStatement("$T rawType = (($T) $N).getRawType()", Type.class,
-                  ParameterizedType.class, type);
+              .beginControlFlow("if ($N instanceof $T)", type, ParameterizedType.class);
         }
 
-        addControlFlowGeneric(generics, elementTypeName, element, numGenerics,
+        addControlFlowGeneric(generics,
+            elementTypeName,
+            element,
+            numGenerics,
             requestNullSafeAdapters);
         numGenerics++;
       } else {
@@ -187,12 +191,11 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
           classes = CodeBlock.builder();
         }
 
-        addControlFlow(classes, CodeBlock.of("$N", type), elementTypeName, numClasses);
+        addControlFlow(classes, elementTypeName, numClasses);
         numClasses++;
 
-        String returnStatement = requestNullSafeAdapters
-            ? "return $T.$L($N).nullSafe()"
-            : "return $T.$L($N)";
+        String returnStatement =
+            requestNullSafeAdapters ? "return $T.$L($N).nullSafe()" : "return $T.$L($N)";
         ExecutableElement jsonAdapterMethod = getJsonAdapterMethod(element);
         classes.addStatement(returnStatement, element, jsonAdapterMethod.getSimpleName(), moshi);
       }
@@ -218,9 +221,7 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
   private void addControlFlowGeneric(CodeBlock.Builder block, TypeName elementTypeName,
       Element element, int numGenerics, boolean requestNullSafeAdapters) {
     TypeName typeName = ((ParameterizedTypeName) elementTypeName).rawType;
-    CodeBlock typeBlock = CodeBlock.of("rawType");
-
-    addControlFlow(block, typeBlock, typeName, numGenerics);
+    addControlFlow(block, typeName, numGenerics);
 
     String returnStatement = requestNullSafeAdapters
         ? "return $L.$L($N, (($T) $N).getActualTypeArguments()).nullSafe()"
@@ -234,12 +235,12 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
     }
   }
 
-  private void addControlFlow(CodeBlock.Builder block, CodeBlock typeBlock,
+  private void addControlFlow(CodeBlock.Builder block,
       TypeName elementTypeName, int pos) {
     if (pos == 0) {
-      block.beginControlFlow("if ($L.equals($T.class))", typeBlock, elementTypeName);
+      block.beginControlFlow("if ($T.class.isAssignableFrom(rawType))", elementTypeName);
     } else {
-      block.nextControlFlow("else if ($L.equals($T.class))", typeBlock, elementTypeName);
+      block.nextControlFlow("else if ($T.class.isAssignableFrom(rawType))", elementTypeName);
     }
   }
 
