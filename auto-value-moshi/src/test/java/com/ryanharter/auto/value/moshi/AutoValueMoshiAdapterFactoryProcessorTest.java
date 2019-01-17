@@ -33,7 +33,31 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
         + "  }\n"
         + "  public abstract String getName();\n"
         + "}");
-    JavaFileObject source3 = JavaFileObjects.forSourceString("test.MyAdapterFactory", ""
+    // This is generated into a different package and not visible to the factory
+    JavaFileObject source3 = JavaFileObjects.forSourceString("test2.NotVisibleClass", ""
+        + "package test2;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "@AutoValue abstract class NotVisibleClass {\n"
+        + "  public static JsonAdapter<NotVisibleClass> jsonAdapter(Moshi moshi) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        + "  public abstract String getName();\n"
+        + "}");
+    // This adapter method generated into a different package and not visible to the factory
+    JavaFileObject source4 = JavaFileObjects.forSourceString("test2.NotVisibleMethod", ""
+        + "package test2;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "@AutoValue public abstract class NotVisibleMethod {\n"
+        + "  static JsonAdapter<NotVisibleMethod> jsonAdapter(Moshi moshi) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        + "  public abstract String getName();\n"
+        + "}");
+    JavaFileObject source5 = JavaFileObjects.forSourceString("test.MyAdapterFactory", ""
         + "package test;\n"
         + "import com.squareup.moshi.JsonAdapter;\n"
         + "import com.squareup.moshi.Moshi;\n"
@@ -70,7 +94,74 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
             + "    return null;\n"
             + "  }\n"
             + "}");
-    assertAbout(javaSources()).that(ImmutableSet.of(source1, source2, source3))
+    assertAbout(javaSources()).that(ImmutableSet.of(source1, source2, source3, source4, source5))
+        .processedWith(new AutoValueMoshiAdapterFactoryProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected);
+  }
+  @Test public void packagePrivateEverything() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "@AutoValue abstract class Foo {\n"
+        + "  static JsonAdapter<Foo> jsonAdapter(Moshi moshi) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        + "  abstract String getName();\n"
+        + "  abstract boolean isAwesome();\n"
+        + "}");
+    JavaFileObject source2 = JavaFileObjects.forSourceString("test.Bar", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "@AutoValue abstract class Bar {\n"
+        + "  static JsonAdapter<Bar> jsonAdapter(Moshi moshi) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        + "  abstract String getName();\n"
+        + "}");
+    JavaFileObject source5 = JavaFileObjects.forSourceString("test.MyAdapterFactory", ""
+        + "package test;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import com.ryanharter.auto.value.moshi.MoshiAdapterFactory;\n"
+        + "@MoshiAdapterFactory\n"
+        + "abstract class MyAdapterFactory implements JsonAdapter.Factory {\n"
+        + "  static JsonAdapter.Factory create() {\n"
+        + "    return new AutoValueMoshi_MyAdapterFactory();\n"
+        + "  }\n"
+        + "}");
+    JavaFileObject expected =
+        JavaFileObjects.forSourceString("test.AutoValueMoshi_MyAdapterFactory", ""
+            + "package test;\n"
+            + "\n"
+            + "import com.squareup.moshi.JsonAdapter;\n"
+            + "import com.squareup.moshi.Moshi;\n"
+            + "import com.squareup.moshi.Types;\n"
+            + "import java.lang.Class;\n"
+            + "import java.lang.Override;\n"
+            + "import java.lang.annotation.Annotation;\n"
+            + "import java.lang.reflect.Type;\n"
+            + "import java.util.Set;\n"
+            + "\n"
+            + "final class AutoValueMoshi_MyAdapterFactory extends MyAdapterFactory {\n"
+            + "  @Override public JsonAdapter<?> create(Type type, "
+            + "     Set<? extends Annotation> annotations, Moshi moshi) {\n"
+            + "    if (!annotations.isEmpty()) return null;\n"
+            + "    Class<?> rawType = Types.getRawType(type);\n"
+            + "    if (Foo.class.isAssignableFrom(rawType)) {\n"
+            + "      return Foo.jsonAdapter(moshi);\n"
+            + "    } else if (Bar.class.isAssignableFrom(rawType)) {\n"
+            + "      return Bar.jsonAdapter(moshi);\n"
+            + "    }\n"
+            + "    return null;\n"
+            + "  }\n"
+            + "}");
+    assertAbout(javaSources()).that(ImmutableSet.of(source1, source2, source5))
         .processedWith(new AutoValueMoshiAdapterFactoryProcessor())
         .compilesWithoutError()
         .and()
