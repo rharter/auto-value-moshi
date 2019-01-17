@@ -41,7 +41,7 @@ dependencies {
 
   api libraries.autoValue
   api libraries.autoValueAnnotations
-  api project(':auto-value-moshi-annotations')
+  api project(':auto-value-moshi-runtime')
   compileShaded libraries.guava
   implementation libraries.javaPoet
   implementation libraries.moshi
