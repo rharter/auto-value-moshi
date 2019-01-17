@@ -17,14 +17,12 @@ import com.squareup.javapoet.WildcardTypeName;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
 
-import java.util.stream.Collectors;
 import net.ltgt.gradle.incap.IncrementalAnnotationProcessor;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
