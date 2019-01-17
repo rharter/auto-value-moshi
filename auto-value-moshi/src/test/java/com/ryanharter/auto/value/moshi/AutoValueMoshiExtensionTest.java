@@ -48,6 +48,7 @@ public final class AutoValueMoshiExtensionTest {
   }
 
   @Test public void simple() {
+    // Note that the jsonAdapter() method can be package-private
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
         + "import com.squareup.moshi.Json;\n"
@@ -58,7 +59,7 @@ public final class AutoValueMoshiExtensionTest {
         + "import com.squareup.moshi.Moshi;\n"
         + "import java.util.Map;\n"
         + "import java.util.Set;\n"
-        + "@AutoValue public abstract class Test {\n"
+        + "@AutoValue abstract class Test {\n"
         + "  public static JsonAdapter<Test> jsonAdapter(Moshi moshi) {\n"
         + "    return new AutoValue_Test.MoshiJsonAdapter(moshi);\n"
         + "  }\n"
@@ -1442,7 +1443,7 @@ public final class AutoValueMoshiExtensionTest {
         .that(ImmutableSet.of(source1, source2))
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
-        .withWarningContaining("Found public static method returning JsonAdapter<test.Bar> on "
+        .withWarningContaining("Found static method returning JsonAdapter<test.Bar> on "
             + "test.Foo class. Skipping MoshiJsonAdapter generation.");
   }
 
@@ -1465,7 +1466,7 @@ public final class AutoValueMoshiExtensionTest {
         .that(source1)
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
-        .withWarningContaining("Found public static method returning JsonAdapter with no type "
+        .withWarningContaining("Found static method returning JsonAdapter with no type "
             + "arguments, skipping MoshiJsonAdapter generation.");
   }
 
