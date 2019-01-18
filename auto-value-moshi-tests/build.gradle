@@ -10,7 +10,7 @@ dependencies {
   compileOnly libraries.jsr305
   compileOnly libraries.autoValueAnnotations
 
-  implementation project(':auto-value-moshi-annotations')
+  implementation project(':auto-value-moshi-runtime')
   implementation libraries.moshi
 
   testCompile libraries.junit
