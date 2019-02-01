@@ -139,6 +139,9 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
               }
               // If we got here, the class is visible. Now check the jsonAdapter method
               ExecutableElement adapterMethod = getJsonAdapterMethod(e);
+              if (adapterMethod == null) {
+                return false;
+              }
               Visibility methodVisibility = Visibility.ofElement(adapterMethod);
               switch (methodVisibility) {
                 case PRIVATE:
@@ -300,7 +303,7 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
         }
       }
     }
-    throw new AssertionError();
+    return null;
   }
 
   private void error(Element element, String message, Object... args) {
