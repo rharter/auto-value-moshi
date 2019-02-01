@@ -106,7 +106,8 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
             + "    return null;\n"
             + "  }\n"
             + "}");
-    assertAbout(javaSources()).that(ImmutableSet.of(source1, source2, source3, source4, source5, source6))
+    assertAbout(javaSources())
+        .that(ImmutableSet.of(source1, source2, source3, source4, source5, source6))
         .processedWith(new AutoValueMoshiAdapterFactoryProcessor())
         .compilesWithoutError()
         .and()
