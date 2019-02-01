@@ -94,15 +94,23 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
 
   @Override public boolean process(Set<? extends TypeElement> annotations,
       RoundEnvironment roundEnv) {
+    Set<? extends Element> adapterFactories =
+        roundEnv.getElementsAnnotatedWith(MoshiAdapterFactory.class);
+    if (adapterFactories.isEmpty()) {
+      return false;
+    }
     List<TypeElement> elements = roundEnv.getElementsAnnotatedWith(AutoValue.class)
         .stream()
         .map(e -> (TypeElement) e)
         .filter(e ->  extension.applicable(new LimitedContext(processingEnv, e)))
+        .sorted((o1, o2) -> {
+          final String o1Name = classNameOf(o1);
+          final String o2Name = classNameOf(o2);
+          return o1Name.compareTo(o2Name);
+        })
         .collect(toList());
 
     if (!elements.isEmpty()) {
-      Set<? extends Element> adapterFactories =
-          roundEnv.getElementsAnnotatedWith(MoshiAdapterFactory.class);
       for (Element element : adapterFactories) {
         if (!element.getModifiers().contains(ABSTRACT)) {
           error(element, "Must be abstract!");
