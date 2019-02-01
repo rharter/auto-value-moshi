@@ -47,7 +47,9 @@ import static com.google.auto.common.MoreElements.getPackage;
 import static java.util.stream.Collectors.toList;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.STATIC;
 import static javax.tools.Diagnostic.Kind.ERROR;
 import static net.ltgt.gradle.incap.IncrementalAnnotationProcessorType.AGGREGATING;
 
@@ -283,7 +285,7 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
     ParameterizedTypeName jsonAdapterType = ParameterizedTypeName.get(
         ClassName.get(JsonAdapter.class), TypeName.get(element.asType()));
     for (ExecutableElement method : ElementFilter.methodsIn(element.getEnclosedElements())) {
-      if (method.getModifiers().contains(Modifier.STATIC)) {
+      if (method.getModifiers().contains(STATIC) && !method.getModifiers().contains(PRIVATE)) {
         TypeMirror rType = method.getReturnType();
         TypeName returnType = TypeName.get(rType);
         if (returnType.equals(jsonAdapterType)) {

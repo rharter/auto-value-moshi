@@ -57,7 +57,19 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
         + "  }\n"
         + "  public abstract String getName();\n"
         + "}");
-    JavaFileObject source5 = JavaFileObjects.forSourceString("test.MyAdapterFactory", ""
+    // This adapter method is private and thus not applicable
+    JavaFileObject source5 = JavaFileObjects.forSourceString("test.PrivateMethod", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "@AutoValue public abstract class PrivateMethod {\n"
+        + "  private static JsonAdapter<PrivateMethod> jsonAdapter(Moshi moshi) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        + "  public abstract String getName();\n"
+        + "}");
+    JavaFileObject source6 = JavaFileObjects.forSourceString("test.MyAdapterFactory", ""
         + "package test;\n"
         + "import com.squareup.moshi.JsonAdapter;\n"
         + "import com.squareup.moshi.Moshi;\n"
@@ -94,7 +106,7 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
             + "    return null;\n"
             + "  }\n"
             + "}");
-    assertAbout(javaSources()).that(ImmutableSet.of(source1, source2, source3, source4, source5))
+    assertAbout(javaSources()).that(ImmutableSet.of(source1, source2, source3, source4, source5, source6))
         .processedWith(new AutoValueMoshiAdapterFactoryProcessor())
         .compilesWithoutError()
         .and()
