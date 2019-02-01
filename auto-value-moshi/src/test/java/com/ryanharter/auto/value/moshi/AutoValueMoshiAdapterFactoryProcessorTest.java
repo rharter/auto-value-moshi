@@ -113,6 +113,7 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
         .and()
         .generatesSources(expected);
   }
+
   @Test public void packagePrivateEverything() {
     JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
         + "package test;\n"
