@@ -2,6 +2,7 @@ package com.ryanharter.auto.value.moshi;
 
 import com.google.auto.value.processor.AutoValueProcessor;
 import com.google.common.collect.ImmutableSet;
+import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
 import org.junit.Before;
 import org.junit.Test;
@@ -10,6 +11,9 @@ import javax.tools.JavaFileObject;
 import java.util.Arrays;
 
 import static com.google.common.truth.Truth.assertAbout;
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.testing.compile.CompilationSubject.compilations;
+import static com.google.testing.compile.Compiler.javac;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
@@ -48,6 +52,7 @@ public final class AutoValueMoshiExtensionTest {
   }
 
   @Test public void simple() {
+    // Note that the jsonAdapter() method can be package-private
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
         + "import com.squareup.moshi.Json;\n"
@@ -58,7 +63,7 @@ public final class AutoValueMoshiExtensionTest {
         + "import com.squareup.moshi.Moshi;\n"
         + "import java.util.Map;\n"
         + "import java.util.Set;\n"
-        + "@AutoValue public abstract class Test {\n"
+        + "@AutoValue abstract class Test {\n"
         + "  public static JsonAdapter<Test> jsonAdapter(Moshi moshi) {\n"
         + "    return new AutoValue_Test.MoshiJsonAdapter(moshi);\n"
         + "  }\n"
@@ -226,6 +231,52 @@ public final class AutoValueMoshiExtensionTest {
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
+  }
+
+  @Test public void privateMethod() {
+    // Private methods exclude them from AVMoshi consideration
+    JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
+        + "package test;\n"
+        + "import com.squareup.moshi.Json;\n"
+        + "import com.ryanharter.auto.value.moshi.SerializedName;\n"
+        + "import com.ryanharter.auto.value.moshi.Nullable;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import java.util.Map;\n"
+        + "import java.util.Set;\n"
+        + "@AutoValue abstract class Test {\n"
+        + "  private static JsonAdapter<Test> jsonAdapter(Moshi moshi) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        // Reference type
+        + "public abstract String a();\n"
+        // Array type
+        + "public abstract int[] b();\n"
+        // Primitive type
+        + "public abstract int c();\n"
+        // SerializedName // TODO uncomment this once the target is updated in Moshi
+        + "/*@Json(name=\"_D\")*/ public abstract String d();\n"
+        // Parametrized type, multiple parameters
+        + "public abstract Map<String, Number> e();\n"
+        // Parametrized type, single parameter
+        + "public abstract Set<? extends String> f();\n"
+        // Nested parameterized type
+        + "public abstract Map<String, Set<? super String>> g();\n"
+        // Nullable type
+        + "@Nullable abstract String i();\n"
+        + "}\n"
+    );
+
+    Compilation compilation = javac()
+        .withProcessors(new AutoValueProcessor())
+        .compile(serializedName, nullable, source);
+    assertAbout(compilations())
+        .that(compilation)
+        .succeeded();
+
+    assertThat(compilation.generatedSourceFiles()).hasSize(1);
+    assertThat(compilation.generatedSourceFiles().get(0).getName()).endsWith("AutoValue_Test.java");
   }
 
   @Test public void allNullable() {
@@ -1442,7 +1493,7 @@ public final class AutoValueMoshiExtensionTest {
         .that(ImmutableSet.of(source1, source2))
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
-        .withWarningContaining("Found public static method returning JsonAdapter<test.Bar> on "
+        .withWarningContaining("Found static method returning JsonAdapter<test.Bar> on "
             + "test.Foo class. Skipping MoshiJsonAdapter generation.");
   }
 
@@ -1465,7 +1516,7 @@ public final class AutoValueMoshiExtensionTest {
         .that(source1)
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
-        .withWarningContaining("Found public static method returning JsonAdapter with no type "
+        .withWarningContaining("Found static method returning JsonAdapter with no type "
             + "arguments, skipping MoshiJsonAdapter generation.");
   }
 

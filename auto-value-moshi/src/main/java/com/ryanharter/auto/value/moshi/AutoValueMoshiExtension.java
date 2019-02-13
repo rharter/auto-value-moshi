@@ -32,7 +32,6 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeMirror;
@@ -119,14 +118,13 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
   }
 
   @Override public boolean applicable(Context context) {
-    // check that the class contains a public static method returning a JsonAdapter
+    // check that the class contains a static method returning a JsonAdapter
     TypeElement type = context.autoValueClass();
     ParameterizedTypeName jsonAdapterType = ParameterizedTypeName.get(
         ADAPTER_CLASS_NAME, TypeName.get(type.asType()));
     TypeName returnedJsonAdapter = null;
     for (ExecutableElement method : ElementFilter.methodsIn(type.getEnclosedElements())) {
-      if (method.getModifiers().contains(Modifier.STATIC)
-          && method.getModifiers().contains(Modifier.PUBLIC)) {
+      if (method.getModifiers().contains(STATIC) && !method.getModifiers().contains(PRIVATE)) {
         TypeMirror rType = method.getReturnType();
         TypeName returnType = TypeName.get(rType);
         if (returnType.equals(jsonAdapterType)) {
@@ -154,11 +152,11 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       } else {
         TypeName argument = paramReturnType.typeArguments.get(0);
         messager.printMessage(Diagnostic.Kind.WARNING,
-            String.format("Found public static method returning JsonAdapter<%s> on %s class. "
+            String.format("Found static method returning JsonAdapter<%s> on %s class. "
                 + "Skipping MoshiJsonAdapter generation.", argument, type));
       }
     } else {
-      messager.printMessage(Diagnostic.Kind.WARNING, "Found public static method returning "
+      messager.printMessage(Diagnostic.Kind.WARNING, "Found static method returning "
           + "JsonAdapter with no type arguments, skipping MoshiJsonAdapter generation.");
     }
 

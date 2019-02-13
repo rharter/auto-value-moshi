@@ -1,5 +1,6 @@
 package com.ryanharter.auto.value.moshi;
 
+import com.google.auto.common.Visibility;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.AutoValueExtension;
@@ -22,7 +23,6 @@ import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,7 +34,6 @@ import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
@@ -43,9 +42,13 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
+import static com.google.auto.common.MoreElements.getPackage;
+import static java.util.stream.Collectors.toList;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.STATIC;
 import static javax.tools.Diagnostic.Kind.ERROR;
 import static net.ltgt.gradle.incap.IncrementalAnnotationProcessorType.AGGREGATING;
 
@@ -91,18 +94,24 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
 
   @Override public boolean process(Set<? extends TypeElement> annotations,
       RoundEnvironment roundEnv) {
-    List<Element> elements = new LinkedList<>();
-    for (Element element : roundEnv.getElementsAnnotatedWith(AutoValue.class)) {
-      AutoValueExtension.Context context = new LimitedContext(processingEnv, (TypeElement) element);
-      if (extension.applicable(context)) {
-        elements.add(element);
-      }
+    Set<? extends Element> adapterFactories =
+        roundEnv.getElementsAnnotatedWith(MoshiAdapterFactory.class);
+    if (adapterFactories.isEmpty()) {
+      return false;
     }
+    List<TypeElement> elements = roundEnv.getElementsAnnotatedWith(AutoValue.class)
+        .stream()
+        .map(e -> (TypeElement) e)
+        .filter(e ->  extension.applicable(new LimitedContext(processingEnv, e)))
+        .sorted((o1, o2) -> {
+          final String o1Name = classNameOf(o1);
+          final String o2Name = classNameOf(o2);
+          return o1Name.compareTo(o2Name);
+        })
+        .collect(toList());
 
     if (!elements.isEmpty()) {
-      Set<? extends Element> adaptorFactories =
-          roundEnv.getElementsAnnotatedWith(MoshiAdapterFactory.class);
-      for (Element element : adaptorFactories) {
+      for (Element element : adapterFactories) {
         if (!element.getModifiers().contains(ABSTRACT)) {
           error(element, "Must be abstract!");
         }
@@ -112,13 +121,47 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
           error(element, "Must implement JsonAdapter.Factory!");
         }
         String adapterName = classNameOf(type);
-        String packageName = packageNameOf(type);
+        PackageElement packageElement = packageElementOf(type);
+        String packageName = packageElement.getQualifiedName().toString();
+
+        List<TypeElement> applicableElements = elements.stream()
+            .filter(e -> {
+              Visibility typeVisibility = Visibility.ofElement(e);
+              switch (typeVisibility) {
+                case PRIVATE:
+                  return false;
+                case DEFAULT:
+                case PROTECTED:
+                  if (!getPackage(e).equals(packageElement)) {
+                    return false;
+                  }
+                  break;
+              }
+              // If we got here, the class is visible. Now check the jsonAdapter method
+              ExecutableElement adapterMethod = getJsonAdapterMethod(e);
+              if (adapterMethod == null) {
+                return false;
+              }
+              Visibility methodVisibility = Visibility.ofElement(adapterMethod);
+              switch (methodVisibility) {
+                case PRIVATE:
+                  return false;
+                case DEFAULT:
+                case PROTECTED:
+                  if (!getPackage(adapterMethod).equals(packageElement)) {
+                    return false;
+                  }
+                  break;
+              }
+              return true;
+            })
+            .collect(toList());
 
         MoshiAdapterFactory annotation = element.getAnnotation(MoshiAdapterFactory.class);
         boolean requestNullSafeAdapters = annotation.nullSafe();
 
         TypeSpec jsonAdapterFactory = createJsonAdapterFactory(type,
-            elements,
+            applicableElements,
             packageName,
             adapterName,
             requestNullSafeAdapters);
@@ -137,14 +180,17 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
   }
 
   private TypeSpec createJsonAdapterFactory(TypeElement sourceElement,
-      List<Element> elements,
+      List<TypeElement> elements,
       String packageName,
       String factoryName,
       boolean requestNullSafeAdapters) {
     TypeSpec.Builder factory =
         TypeSpec.classBuilder(ClassName.get(packageName, "AutoValueMoshi_" + factoryName));
     factory.addOriginatingElement(sourceElement);
-    factory.addModifiers(PUBLIC, FINAL);
+    if (sourceElement.getModifiers().contains(PUBLIC)) {
+      factory.addModifiers(PUBLIC);
+    }
+    factory.addModifiers(FINAL);
     factory.superclass(ClassName.get(packageName, factoryName));
 
     ParameterSpec type = TYPE_SPEC;
@@ -249,8 +295,7 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
     ParameterizedTypeName jsonAdapterType = ParameterizedTypeName.get(
         ClassName.get(JsonAdapter.class), TypeName.get(element.asType()));
     for (ExecutableElement method : ElementFilter.methodsIn(element.getEnclosedElements())) {
-      if (method.getModifiers().contains(Modifier.STATIC)
-          && method.getModifiers().contains(Modifier.PUBLIC)) {
+      if (method.getModifiers().contains(STATIC) && !method.getModifiers().contains(PRIVATE)) {
         TypeMirror rType = method.getReturnType();
         TypeName returnType = TypeName.get(rType);
         if (returnType.equals(jsonAdapterType)) {
@@ -258,7 +303,7 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
         }
       }
     }
-    throw new AssertionError();
+    return null;
   }
 
   private void error(Element element, String message, Object... args) {
@@ -318,13 +363,15 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
    * (unnamed) package then the name is the empty string.
    */
   private static String packageNameOf(TypeElement type) {
-    while (true) {
-      Element enclosing = type.getEnclosingElement();
-      if (enclosing instanceof PackageElement) {
-        return ((PackageElement) enclosing).getQualifiedName().toString();
-      }
-      type = (TypeElement) enclosing;
-    }
+    return packageElementOf(type).getQualifiedName().toString();
+  }
+
+  /**
+   * Returns the package element that the given type is in. If the type is in the default
+   * (unnamed) package then the name is the empty string.
+   */
+  private static PackageElement packageElementOf(TypeElement type) {
+    return getPackage(type);
   }
 
   private static class LimitedContext implements AutoValueExtension.Context {

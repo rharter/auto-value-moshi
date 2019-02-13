@@ -5,6 +5,7 @@ ext {
         java          : JavaVersion.VERSION_1_8,
         // Main dependencies
         javaPoet      : '1.11.0',
+        autoCommon    : '0.10',
         autoValue     : '1.6.3rc1',
         autoService   : '1.0-rc4',
         guava         : '27.0-jre',
@@ -20,6 +21,7 @@ ext {
 
     libraries = [
         javaPoet            : "com.squareup:javapoet:$versions.javaPoet",
+        autoCommon          : "com.google.auto:auto-common:$versions.autoCommon",
         autoValue           : "com.google.auto.value:auto-value:$versions.autoValue",
         autoValueAnnotations: "com.google.auto.value:auto-value-annotations:$versions.autoValue",
         autoService         : "com.google.auto.service:auto-service:$versions.autoService",

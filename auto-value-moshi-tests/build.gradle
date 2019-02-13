@@ -1,5 +1,5 @@
 apply plugin: 'net.ltgt.apt'
-apply plugin: 'java'
+apply plugin: 'java-library'
 
 sourceCompatibility = versions.java
 targetCompatibility = versions.java
@@ -8,9 +8,10 @@ dependencies {
   annotationProcessor libraries.incap // https://github.com/google/auto/issues/615#issuecomment-438045951
   annotationProcessor project(':auto-value-moshi')
   compileOnly libraries.jsr305
-  compileOnly project(':auto-value-moshi')
+  compileOnly libraries.autoValueAnnotations
 
-  compile libraries.moshi
+  implementation project(':auto-value-moshi-runtime')
+  implementation libraries.moshi
 
   testCompile libraries.junit
   testCompile libraries.assertJ
