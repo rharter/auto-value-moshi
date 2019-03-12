@@ -28,7 +28,7 @@ import java.util.Map;
 
   public abstract short aShort();
 
-  public abstract boolean aBooleanObj();
+  public abstract Boolean aBooleanObj();
 
   public abstract Byte aByteObj();
 
