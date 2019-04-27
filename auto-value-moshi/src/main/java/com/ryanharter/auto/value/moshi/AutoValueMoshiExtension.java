@@ -1,5 +1,6 @@
 package com.ryanharter.auto.value.moshi;
 
+import com.google.auto.common.GeneratedAnnotationSpecs;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.extension.AutoValueExtension;
 import com.google.common.base.Joiner;
@@ -26,17 +27,6 @@ import com.squareup.moshi.JsonReader;
 import com.squareup.moshi.JsonWriter;
 import com.squareup.moshi.Moshi;
 import com.squareup.moshi.Types;
-
-import javax.annotation.processing.Messager;
-import javax.annotation.processing.ProcessingEnvironment;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.TypeParameterElement;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.ElementFilter;
-import javax.tools.Diagnostic;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
@@ -53,6 +43,16 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.processing.Messager;
+import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.TypeParameterElement;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.ElementFilter;
+import javax.tools.Diagnostic;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -197,6 +197,12 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
         .superclass(superclass)
         .addType(typeAdapter)
         .addMethod(generateConstructor(properties));
+
+    GeneratedAnnotationSpecs.generatedAnnotationSpec(
+        context.processingEnvironment().getElementUtils(),
+        context.processingEnvironment().getSourceVersion(),
+        AutoValueMoshiExtension.class
+    ).ifPresent(subclass::addAnnotation);
 
     if (shouldCreateGenerics) {
       subclass.addTypeVariables(Arrays.asList(genericTypeNames));
