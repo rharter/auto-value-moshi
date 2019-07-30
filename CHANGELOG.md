@@ -1,5 +1,11 @@
 # Change Log
 
+## Version 0.4.6 (2019-07-30)
+
+* Supports incremental annotation processing. (#113, #114)
+* Fixes an issue with how `nullSafe` is applied when using `@Nullable` constructor parameters. (#108)
+* `@Nullable` annotations are now copied to constructor. (#111)
+
 ## Version 0.4.5 (2017-12-14)
 
 * User nullSafe adapters for @Nullable properties (#95)

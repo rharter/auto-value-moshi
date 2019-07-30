@@ -74,8 +74,8 @@ Moshi moshi = new Moshi.Builder()
 Add a Gradle dependency:
 
 ```kotlin
-annotationProcessor("com.ryanharter.auto.value:auto-value-moshi:0.4.5")
-implementation("com.ryanharter.auto.value:auto-value-moshi-annotations:0.4.5")
+annotationProcessor("com.ryanharter.auto.value:auto-value-moshi:0.4.6")
+implementation("com.ryanharter.auto.value:auto-value-moshi-annotations:0.4.6")
 ```
 
 ## License
