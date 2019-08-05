@@ -1,5 +1,9 @@
 # Change Log
 
+## Version 0.4.7 (2019-08-05)
+
+* Fixes issue with missing classes in shaded jar. (#134)
+
 ## Version 0.4.6 (2019-07-30)
 
 * Supports incremental annotation processing. (#113, #114)
