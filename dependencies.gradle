@@ -6,8 +6,8 @@ ext {
         // Main dependencies
         javaPoet      : '1.11.0',
         autoCommon    : '0.10',
-        autoValue     : '1.6.3',
-        autoService   : '1.0-rc4',
+        autoValue     : '1.6.5',
+        autoService   : '1.0-rc6',
         guava         : '27.1-jre',
         moshi         : '1.7.0',
         incapHelper   : '0.2',
