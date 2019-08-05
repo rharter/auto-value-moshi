@@ -15,6 +15,7 @@ shadowJar {
   minimize()
   classifier = ''
   configurations = [shadedConfig]
+  relocate 'com.google.auto.common', 'autovaluemoshi.shaded.com.google.auto.common'
   relocate 'com.google.common', 'autovaluemoshi.shaded.com.google.common'
   relocate 'com.google.thirdparty', 'autovaluemoshi.shaded.com.google.thirdparty'
   exclude 'afu/**'
@@ -39,8 +40,9 @@ dependencies {
   compileOnly libraries.incap
   compileOnly libraries.autoService
 
+  api libraries.autoValueAnnotations
+
   implementation libraries.autoValue
-  implementation libraries.autoValueAnnotations
   implementation project(':auto-value-moshi-runtime')
   compileShaded libraries.guava
   compileShaded libraries.autoCommon
