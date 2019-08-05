@@ -1,5 +1,6 @@
 package com.ryanharter.auto.value.moshi;
 
+import com.google.auto.common.GeneratedAnnotationSpecs;
 import com.google.auto.common.Visibility;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
@@ -16,9 +17,6 @@ import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.WildcardTypeName;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
-
-import net.ltgt.gradle.incap.IncrementalAnnotationProcessor;
-
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.ParameterizedType;
@@ -26,7 +24,6 @@ import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
@@ -41,6 +38,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+import net.ltgt.gradle.incap.IncrementalAnnotationProcessor;
 
 import static com.google.auto.common.MoreElements.getPackage;
 import static java.util.stream.Collectors.toList;
@@ -192,6 +190,12 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
     }
     factory.addModifiers(FINAL);
     factory.superclass(ClassName.get(packageName, factoryName));
+
+    GeneratedAnnotationSpecs.generatedAnnotationSpec(
+        processingEnv.getElementUtils(),
+        processingEnv.getSourceVersion(),
+        AutoValueMoshiAdapterFactoryProcessor.class
+    ).ifPresent(factory::addAnnotation);
 
     ParameterSpec type = TYPE_SPEC;
     ParameterSpec annotations = ANNOTATIONS_SPEC;

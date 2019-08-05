@@ -6,16 +6,16 @@ ext {
         // Main dependencies
         javaPoet      : '1.11.0',
         autoCommon    : '0.10',
-        autoValue     : '1.6.3rc1',
+        autoValue     : '1.6.3',
         autoService   : '1.0-rc4',
-        guava         : '27.0-jre',
+        guava         : '27.1-jre',
         moshi         : '1.7.0',
         incapHelper   : '0.2',
         jsr305        : '3.0.2',
         // For testing
         junit         : '4.12',
-        truth         : '0.42',
-        compileTesting: '0.15',
+        truth         : '0.44',
+        compileTesting: '0.16',
         assertJ       : '2.5.0',
     ]
 
