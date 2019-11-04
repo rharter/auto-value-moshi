@@ -1,5 +1,5 @@
 plugins {
-  id 'com.github.johnrengelman.shadow' version '4.0.1'
+  id 'com.github.johnrengelman.shadow' version '5.1.0'
   id 'java-library'
   id 'maven-publish'
 }
@@ -13,7 +13,7 @@ def shadedConfig = configurations.create('compileShaded')
 configurations.compileOnly.extendsFrom(shadedConfig)
 shadowJar {
   minimize()
-  classifier = ''
+  archiveClassifier.set('')
   configurations = [shadedConfig]
   relocate 'com.google.auto.common', 'autovaluemoshi.shaded.com.google.auto.common'
   relocate 'com.google.common', 'autovaluemoshi.shaded.com.google.common'
