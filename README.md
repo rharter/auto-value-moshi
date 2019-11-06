@@ -31,7 +31,7 @@ If the annotated class uses generics, the static method needs a little modificat
 @AutoValue public abstract class Foo<T> {
     abstract T data();
     
-    public static JsonAdapter<Foo<T>> jsonAdapter(Moshi moshi, Type[] types) {
+    public static <T> JsonAdapter<Foo<T>> jsonAdapter(Moshi moshi, Type[] types) {
         return new AutoValue_Foo.MoshiJsonAdapter(moshi, types);
     }
 }
