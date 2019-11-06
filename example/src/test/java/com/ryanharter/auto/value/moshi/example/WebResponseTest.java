@@ -16,9 +16,9 @@ public class WebResponseTest {
 
     @Test
     public void handlesBasicTypes() throws IOException {
-        String json = "{\"status\":200,\"data\":\"string\"," +
-                "\"dataList\":[\"string\"]," +
-                "\"dataMap\":{\"key\":[\"string\"]}}";
+        String json = "{\"status\":200,\"data\":\"string\","
+                + "\"dataList\":[\"string\"],"
+                + "\"dataMap\":{\"key\":[\"string\"]}}";
         Type webresponseType = Types.newParameterizedType(WebResponse.class, String.class);
         JsonAdapter<WebResponse<String>> jsonAdapter = moshi.adapter(webresponseType);
         WebResponse<String> response = jsonAdapter.fromJson(json);
@@ -30,9 +30,9 @@ public class WebResponseTest {
     }
 
     @Test public void handlesComplexTypes() throws IOException {
-        String json = "{\"status\":200,\"data\":{\"firstname\":\"Ryan\",\"lastname\":\"Harter\"}, " +
-                "\"dataList\":[{\"firstname\":\"Ryan\",\"lastname\":\"Harter\"}]," +
-                "\"dataMap\":{\"key\":[{\"firstname\":\"Ryan\",\"lastname\":\"Harter\"}]}}";
+        String json = "{\"status\":200,\"data\":{\"firstname\":\"Ryan\",\"lastname\":\"Harter\"}, "
+                + "\"dataList\":[{\"firstname\":\"Ryan\",\"lastname\":\"Harter\"}],"
+                + "\"dataMap\":{\"key\":[{\"firstname\":\"Ryan\",\"lastname\":\"Harter\"}]}}";
 
         Type webresponseType = Types.newParameterizedType(WebResponse.class, User.class);
         JsonAdapter<WebResponse<User>> jsonAdapter = moshi.adapter(webresponseType);
