@@ -4,8 +4,6 @@ import com.google.auto.value.AutoValue;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
 
-import java.util.Date;
-
 @AutoValue
 public abstract class Person {
     public abstract String name();
@@ -13,8 +11,6 @@ public abstract class Person {
     public abstract int gender();
 
     public abstract int age();
-
-    public abstract Date birthdate();
 
     @Nullable
     public abstract Address address();
@@ -34,8 +30,6 @@ public abstract class Person {
         public abstract Builder gender(int gender);
 
         public abstract Builder age(int age);
-
-        public abstract Builder birthdate(Date birthdate);
 
         public abstract Builder address(Address address);
 

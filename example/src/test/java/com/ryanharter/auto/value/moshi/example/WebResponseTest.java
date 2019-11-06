@@ -11,7 +11,8 @@ import java.lang.reflect.Type;
 import static junit.framework.TestCase.assertEquals;
 
 public class WebResponseTest {
-    Moshi moshi = SampleTypeAdapterFactory.configureMoshiBuilder(new Moshi.Builder())
+    Moshi moshi = new Moshi.Builder()
+            .add(SampleTypeAdapterFactory.create())
             .build();
 
     @Test
