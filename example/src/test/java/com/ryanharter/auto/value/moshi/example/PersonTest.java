@@ -2,13 +2,12 @@ package com.ryanharter.auto.value.moshi.example;
 
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
-
-import org.junit.Assert;
 import org.junit.Test;
-
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
+
+import static org.junit.Assert.assertEquals;
 
 public class PersonTest {
     @Test
@@ -29,12 +28,12 @@ public class PersonTest {
 
         JsonAdapter<Person> jsonAdapter = moshi.adapter(Person.class);
         String toJson = jsonAdapter.toJson(person);
-        Assert.assertEquals(json, toJson);
+        assertEquals(json, toJson);
 
         Person fromJson = jsonAdapter.fromJson(json);
-        Assert.assertEquals("Piasy", fromJson.name());
-        Assert.assertEquals(23, fromJson.age());
-        Assert.assertEquals(1, fromJson.gender());
+        assertEquals("Piasy", fromJson.name());
+        assertEquals(23, fromJson.age());
+        assertEquals(1, fromJson.gender());
     }
 }
 
