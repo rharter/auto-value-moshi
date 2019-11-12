@@ -2,7 +2,6 @@ package com.ryanharter.auto.value.moshi;
 
 import com.google.auto.value.processor.AutoValueProcessor;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
 import org.junit.Before;
@@ -11,6 +10,7 @@ import org.junit.Test;
 import javax.tools.JavaFileObject;
 import java.util.Arrays;
 
+import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.testing.compile.CompilationSubject.compilations;
@@ -210,7 +210,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -251,7 +251,7 @@ public final class AutoValueMoshiExtensionTest {
     );
 
     Compilation compilation = javac()
-        .withProcessors(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .withProcessors(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compile(nullable, source);
     assertAbout(compilations())
         .that(compilation)
@@ -439,7 +439,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -540,7 +540,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -641,7 +641,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -732,7 +732,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(source, nullable))
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -880,7 +880,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(annotation, adapter, source))
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -1035,7 +1035,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSources())
             .that(Arrays.asList(annotation, adapter, source, sourceInterface))
-            .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+            .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
             .compilesWithoutError()
             .and()
             .generatesSources(expected);
@@ -1190,7 +1190,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSources())
             .that(Arrays.asList(annotation, adapter, source, sourceInterface))
-            .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+            .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
             .compilesWithoutError()
             .and()
             .generatesSources(expected);
@@ -1363,7 +1363,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSource())
         .that(source)
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -1448,7 +1448,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSource())
         .that(source)
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .withWarningCount(2)
         .and()
@@ -1477,7 +1477,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSources())
         .that(ImmutableSet.of(source1, source2))
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .withWarningContaining("Found static method returning JsonAdapter<test.Bar> on "
             + "test.Foo class. Skipping MoshiJsonAdapter generation.");
@@ -1500,7 +1500,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSource())
         .that(source1)
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .withWarningContaining("Found static method returning JsonAdapter with no type "
             + "arguments, skipping MoshiJsonAdapter generation.");
@@ -1592,7 +1592,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSource())
         .that(source1)
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -1689,7 +1689,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSource())
         .that(source1)
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -1782,7 +1782,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSource())
         .that(source1)
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -1881,7 +1881,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSource())
         .that(source1)
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -1980,7 +1980,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSource())
         .that(source1)
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .and().generatesSources(expected);
   }
@@ -2161,7 +2161,7 @@ public final class AutoValueMoshiExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(annotation, adapter, source))
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .and().generatesSources(expected);
   }
