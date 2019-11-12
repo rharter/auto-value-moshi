@@ -1,6 +1,7 @@
 package com.ryanharter.auto.value.moshi;
 
 import com.google.auto.common.GeneratedAnnotationSpecs;
+import com.google.auto.common.MoreElements;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.extension.AutoValueExtension;
 import com.google.common.base.Joiner;
@@ -42,7 +43,11 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
@@ -191,7 +196,8 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     }
 
     TypeSpec typeAdapter =
-        createTypeAdapter(classNameClass, autoValueClassName, genericTypeNames, properties);
+        createTypeAdapter(classNameClass, autoValueClassName, genericTypeNames, properties,
+                context.builder().orElse(null), context.processingEnvironment());
 
     TypeSpec.Builder subclass = TypeSpec.classBuilder(className)
         .superclass(superclass)
@@ -265,7 +271,8 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
   }
 
   private TypeSpec createTypeAdapter(ClassName className, TypeName autoValueClassName,
-      TypeVariableName[] genericTypeNames, List<Property> properties) {
+      TypeVariableName[] genericTypeNames, List<Property> properties, @Nullable BuilderContext builderContext,
+                                     ProcessingEnvironment processingEnvironment) {
     TypeName typeAdapterClass = ParameterizedTypeName.get(ADAPTER_CLASS_NAME, autoValueClassName);
 
     ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
@@ -357,7 +364,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
         .superclass(typeAdapterClass)
         .addFields(adapters.values())
         .addMethod(constructor.build())
-        .addMethod(createReadMethod(className, autoValueClassName, adapters, names))
+        .addMethod(createReadMethod(className, autoValueClassName, properties, adapters, names, builderContext, processingEnvironment))
         .addMethod(createWriteMethod(autoValueClassName, adapters));
 
     ArrayTypeName stringArray = ArrayTypeName.of(String.class);
@@ -495,8 +502,9 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     return writeMethod.build();
   }
 
-  private MethodSpec createReadMethod(ClassName className, TypeName autoValueClassName,
-      ImmutableMap<Property, FieldSpec> adapters, List<String> names) {
+  private MethodSpec createReadMethod(ClassName className, TypeName autoValueClassName, List<Property> properties,
+      ImmutableMap<Property, FieldSpec> adapters, List<String> names, @Nullable BuilderContext builderContext,
+                                      ProcessingEnvironment processingEnvironment) {
     NameAllocator nameAllocator = new NameAllocator();
     ParameterSpec reader = ParameterSpec.builder(JsonReader.class, nameAllocator.newName("reader"))
         .build();
@@ -506,28 +514,108 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
         .returns(autoValueClassName)
         .addParameter(reader)
         .addException(IOException.class);
+    // Validate the builderContext if there is one.
+    if (builderContext != null) {
+      if (!builderContext.buildMethod().isPresent()) {
+        processingEnvironment.getMessager()
+                .printMessage(
+                        Diagnostic.Kind.ERROR,
+                        "Could not determine the build method. Make sure it is named \"build\".",
+                        builderContext.builderType());
+        return readMethod.build();
+      }
+
+      Set<ExecutableElement> builderMethods = builderContext.builderMethods();
+
+      if (builderMethods.size() > 1) {
+        Set<ExecutableElement> annotatedMethods = builderMethods.stream()
+                .filter(e -> MoreElements.isAnnotationPresent(e, AutoValueMoshiBuilder.class))
+                .collect(Collectors.toSet());
+
+        if (annotatedMethods.size() > 1) {
+          processingEnvironment.getMessager()
+                  .printMessage(
+                          Diagnostic.Kind.ERROR,
+                          "Too many @AutoValueMoshiBuilder annotated builder methods.",
+                          annotatedMethods.stream().findAny().get()
+                  );
+          return readMethod.build();
+        }
+
+        if (annotatedMethods.isEmpty()) {
+          processingEnvironment.getMessager().printMessage(
+                  Diagnostic.Kind.ERROR,
+                  "Too many builder methods. Annotate builder method with @AutoValueMoshiBuilder.",
+                  builderMethods.stream().findAny().get()
+          );
+          return readMethod.build();
+        }
+      }
+    }
 
     readMethod.addStatement("$N.beginObject()", reader);
 
-    // add the properties
-    Map<Property, FieldSpec> fields = new LinkedHashMap<>(adapters.size());
-    for (Property prop : adapters.keySet()) {
-      FieldSpec field = FieldSpec.builder(prop.type, nameAllocator.newName(prop.humanName)).build();
-      fields.put(prop, field);
+    // Will be empty if using a AutoValue builder
+    Map<Property, FieldSpec> fields = new LinkedHashMap<>(properties.size());
+    // Will be absent if not using AutoValue builder
+    Optional<FieldSpec> builderField = Optional.ofNullable(builderContext)
+            .map(ctx -> FieldSpec
+                    .builder(ClassName.get(ctx.builderType()), "builder")
+                    .build());
 
-      readMethod.addStatement("$T $N = $L", field.type, field, defaultValue(field.type));
+    if (builderField.isPresent()) {
+      Set<ExecutableElement> builderMethods = builderContext.builderMethods();
+
+      if (builderMethods.size() == 0) {
+        // If no builder method defined, instantiate directly.
+        readMethod.addStatement("$T $N = new $T.$L()", builderField.get().type, builderField.get(),
+                className, builderContext.builderType().getSimpleName());
+      } else {
+        ExecutableElement builderMethod;
+        if (builderMethods.size() == 1) {
+          // If there is only 1, use it.
+          builderMethod = builderMethods.stream().findFirst().get();
+        } else {
+          // Otherwise, find the only builder method that is annotated.
+          Set<ExecutableElement> annotatedMethods = builderMethods.stream()
+                  .filter(e -> MoreElements.isAnnotationPresent(e, AutoValueMoshiBuilder.class))
+                  .collect(Collectors.toSet());
+
+          if (annotatedMethods.size() == 1) {
+            builderMethod = annotatedMethods.stream().findFirst().get();
+          } else {
+            throw new IllegalStateException();
+          }
+        }
+
+        readMethod.addStatement("$T $N = $T.$L", builderField.get().type, builderField.get(),
+                autoValueClassName, builderMethod);
+      }
+    } else {
+      // add the properties
+      for (Property prop : adapters.keySet()) {
+        FieldSpec field = FieldSpec.builder(prop.type, nameAllocator.newName(prop.humanName)).build();
+        fields.put(prop, field);
+
+        readMethod.addStatement("$T $N = $L", field.type, field, defaultValue(field.type));
+      }
     }
 
     readMethod.beginControlFlow("while ($N.hasNext())", reader);
 
     // Leverage the select API for better perf
     readMethod.beginControlFlow("switch ($N.selectName(OPTIONS))", reader);
-    for (Map.Entry<Property, FieldSpec> entry : fields.entrySet()) {
-      Property prop = entry.getKey();
-      FieldSpec field = entry.getValue();
+    for (Property property : properties) {
+      CodeBlock.Builder block = CodeBlock.builder();
 
-      readMethod.beginControlFlow("case $L:", names.indexOf(prop.serializedName()));
-      readMethod.addStatement("$N = this.$N.fromJson($N)", field, adapters.get(prop), reader);
+      FieldSpec adapter = adapters.get(property);
+      readMethod.beginControlFlow("case $L:", names.indexOf(property.serializedName()));
+      if (builderField.isPresent()) {
+        addBuilderFieldSetting(block, property, adapter, reader, builderField.get(), builderContext);
+      } else {
+        addFieldSetting(block, fields.get(property), adapter, reader);
+      }
+      readMethod.addCode(block.build());
       readMethod.addStatement("break");
       readMethod.endControlFlow();
     }
@@ -543,20 +631,51 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     readMethod.endControlFlow(); // while
 
     readMethod.addStatement("$N.endObject()", reader);
-
-    StringBuilder format = new StringBuilder("return new ");
-    format.append(className.simpleName().replaceAll("\\$", ""));
-    format.append("(");
-    Iterator<FieldSpec> iterator = fields.values().iterator();
-    while (iterator.hasNext()) {
-      iterator.next();
-      format.append("$N");
-      if (iterator.hasNext()) format.append(", ");
+    if (builderField.isPresent()) {
+      readMethod.addStatement("return $N.$L", builderField.get(), builderContext.buildMethod().get());
+    } else {
+      StringBuilder format = new StringBuilder("return new ");
+      format.append(className.simpleName().replaceAll("\\$", ""));
+      format.append("(");
+      Iterator<FieldSpec> iterator = fields.values().iterator();
+      while (iterator.hasNext()) {
+        iterator.next();
+        format.append("$N");
+        if (iterator.hasNext()) format.append(", ");
+      }
+      format.append(")");
+      readMethod.addStatement(format.toString(), fields.values().toArray());
     }
-    format.append(")");
-    readMethod.addStatement(format.toString(), fields.values().toArray());
-
     return readMethod.build();
+  }
+
+  private void addFieldSetting(CodeBlock.Builder block, FieldSpec field, FieldSpec adapter, ParameterSpec reader) {
+    block.addStatement("$N = this.$N.fromJson($N)", field, adapter, reader);
+  }
+
+  private static void addBuilderFieldSetting(CodeBlock.Builder block,
+                                             Property prop,
+                                             FieldSpec adapter,
+                                             ParameterSpec jsonReader,
+                                             FieldSpec builder,
+                                             BuilderContext builderContext) {
+    Stream<MethodSpec> setterMethodSpecs = builderContext.setters().get(prop.humanName).stream()
+            .map(setterMethod -> MethodSpec.overriding(setterMethod).build());
+
+    // If setter param type matches field type
+    Optional<MethodSpec> setter = setterMethodSpecs
+            // Find setter with param type equal to field type.
+            .filter(methodSpec -> methodSpec.parameters.get(0).type.equals(prop.type))
+            .findFirst();
+
+    if (setter.isPresent()) {
+      block.addStatement("$N.$N($N.fromJson($N))", builder, setter.get(), adapter, jsonReader);
+    } else {
+      // Optional fields are not supported.
+      String errorMsg =
+              "Setter not found for " + prop.element;
+      throw new IllegalArgumentException(errorMsg);
+    }
   }
 
   private String defaultValue(TypeName type) {

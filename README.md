@@ -37,6 +37,27 @@ If the annotated class uses generics, the static method needs a little modificat
 }
 ```
 
+## Builder Support
+If your `@AutoValue` class has a builder, auto-value-moshi will use the builder to 
+instantiate the class. If the `@AutoValue` class has a static no-argument factory method for its builder, it will be used. If there are multiple factory methods, the one annotated `@AutoValueMoshiBuilder` will be used. This can be 
+useful for setting default values.
+
+```java
+@AutoValue public abstract class Foo {
+  abstract int bar();
+  abstract String quux();
+
+  public static Builder builder() {
+    return new AutoValue_Foo.Builder();
+  }
+
+  @AutoValueMoshiBuilder
+  public static Builder builderWithDefaults() {
+    return new builder().quux("QUUX");
+  }
+}
+```
+
 ## Factory
 
 Optionally, auto-value-moshi can create a single [JsonAdapter.Factory](http://square.github.io/moshi/1.x/moshi/com/squareup/moshi/JsonAdapter.Factory.html) so
