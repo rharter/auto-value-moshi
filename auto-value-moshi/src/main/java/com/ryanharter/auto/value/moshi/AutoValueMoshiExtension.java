@@ -36,7 +36,6 @@ import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -176,8 +175,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     boolean shouldCreateGenerics = typeParams != null && typeParams.size() > 0;
 
     ClassName classNameClass = ClassName.get(context.packageName(), className);
-    ClassName autoValueClass = ClassName.get(context.autoValueClass());
-    TypeName autoValueClassName = autoValueClass;
+    ClassName autoValueClassName = ClassName.get(context.autoValueClass());
     TypeVariableName[] genericTypeNames = null;
 
     TypeName superclass;
@@ -187,10 +185,8 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       for (int i = 0; i < typeParams.size(); i++) {
         genericTypeNames[i] = TypeVariableName.get(typeParams.get(i));
       }
-
       superclass = ParameterizedTypeName.get(ClassName.get(context.packageName(), classToExtend),
-          (TypeName[]) genericTypeNames);
-      autoValueClassName = ParameterizedTypeName.get(autoValueClass, (TypeName[]) genericTypeNames);
+              genericTypeNames);
     } else {
       superclass = TypeVariableName.get(classToExtend);
     }
@@ -270,10 +266,14 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     return builder.build();
   }
 
-  private TypeSpec createTypeAdapter(ClassName className, TypeName autoValueClassName,
+  private TypeSpec createTypeAdapter(ClassName className, ClassName autoValueClassName,
       TypeVariableName[] genericTypeNames, List<Property> properties, @Nullable BuilderContext builderContext,
                                      ProcessingEnvironment processingEnvironment) {
+
     TypeName typeAdapterClass = ParameterizedTypeName.get(ADAPTER_CLASS_NAME, autoValueClassName);
+    final TypeName autoValueTypeName = genericTypeNames != null && genericTypeNames.length > 0
+            ? ParameterizedTypeName.get(autoValueClassName, genericTypeNames)
+            : autoValueClassName;
 
     ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
 
@@ -323,7 +323,6 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
 
       // if the property is @Nullable, we append a .nullSafe() to the adapter
       String nullableOrNothing = prop.nullable() ? ".nullSafe()" : "";
-
       if (!usedDeclaredGenericTypeNames.isEmpty() && usesJsonQualifier) {
         // Property uses generics and JsonQualifiers
         needsAdapterWithQualifierMethod = true;
@@ -359,13 +358,16 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       }
     }
 
+    ClassName jsonAdapterClassName = ClassName.get(JsonAdapter.class);
+    ParameterizedTypeName superClass = ParameterizedTypeName.get(jsonAdapterClassName, autoValueTypeName);
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder("MoshiJsonAdapter")
         .addModifiers(PUBLIC, STATIC, FINAL)
-        .superclass(typeAdapterClass)
+        .superclass(superClass)
         .addFields(adapters.values())
         .addMethod(constructor.build())
-        .addMethod(createReadMethod(className, autoValueClassName, properties, adapters, names, builderContext, processingEnvironment))
-        .addMethod(createWriteMethod(autoValueClassName, adapters));
+        .addMethod(createReadMethod(className, autoValueClassName, autoValueTypeName, properties,
+                adapters, names, builderContext, processingEnvironment))
+        .addMethod(createWriteMethod(autoValueTypeName, adapters));
 
     ArrayTypeName stringArray = ArrayTypeName.of(String.class);
     ClassName optionsCN = ClassName.get(JsonReader.Options.class);
@@ -394,12 +396,12 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
   }
 
   private int getTypeIndexInArray(TypeVariableName[] array, TypeName typeName) {
-    return Arrays.binarySearch(array, typeName, new Comparator<TypeName>() {
-      @Override
-      public int compare(TypeName typeName, TypeName t1) {
-        return typeName.equals(t1) ? 0 : -1;
+    for (int i = 0; i < array.length ; i++) {
+      if (typeName.equals(array[i])) {
+        return i;
       }
-    });
+    }
+    return -1;
   }
 
   private MethodSpec createAdapterMethod() {
@@ -461,12 +463,12 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
         .build();
   }
 
-  private MethodSpec createWriteMethod(TypeName autoValueClassName,
+  private MethodSpec createWriteMethod(TypeName autoValueTypeName,
       ImmutableMap<Property, FieldSpec> adapters) {
     String writerName = "writer";
     String valueName = "value";
     ParameterSpec writer = ParameterSpec.builder(JsonWriter.class, writerName).build();
-    ParameterSpec value = ParameterSpec.builder(autoValueClassName, valueName).build();
+    ParameterSpec value = ParameterSpec.builder(autoValueTypeName, valueName).build();
     MethodSpec.Builder writeMethod = MethodSpec.methodBuilder("toJson")
         .addAnnotation(Override.class)
         .addModifiers(PUBLIC)
@@ -502,8 +504,9 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     return writeMethod.build();
   }
 
-  private MethodSpec createReadMethod(ClassName className, TypeName autoValueClassName, List<Property> properties,
-      ImmutableMap<Property, FieldSpec> adapters, List<String> names, @Nullable BuilderContext builderContext,
+  private MethodSpec createReadMethod(ClassName className, ClassName autoValueClassName, TypeName autoValueTypeName,
+                                      List<Property> properties, ImmutableMap<Property, FieldSpec> adapters,
+                                      List<String> names, @Nullable BuilderContext builderContext,
                                       ProcessingEnvironment processingEnvironment) {
     NameAllocator nameAllocator = new NameAllocator();
     ParameterSpec reader = ParameterSpec.builder(JsonReader.class, nameAllocator.newName("reader"))
@@ -511,7 +514,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     MethodSpec.Builder readMethod = MethodSpec.methodBuilder("fromJson")
         .addAnnotation(Override.class)
         .addModifiers(PUBLIC)
-        .returns(autoValueClassName)
+        .returns(autoValueTypeName)
         .addParameter(reader)
         .addException(IOException.class);
     // Validate the builderContext if there is one.
@@ -560,7 +563,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     // Will be absent if not using AutoValue builder
     Optional<FieldSpec> builderField = Optional.ofNullable(builderContext)
             .map(ctx -> FieldSpec
-                    .builder(ClassName.get(ctx.builderType()), "builder")
+                    .builder(TypeName.get(ctx.builderType().asType()), "builder")
                     .build());
 
     if (builderField.isPresent()) {
@@ -588,8 +591,8 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
           }
         }
 
-        readMethod.addStatement("$T $N = $T.$L", builderField.get().type, builderField.get(),
-                autoValueClassName, builderMethod);
+        readMethod.addStatement("$T $N = $T.$N()", builderField.get().type, builderField.get(),
+                autoValueClassName, builderMethod.getSimpleName());
       }
     } else {
       // add the properties
