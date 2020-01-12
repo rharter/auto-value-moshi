@@ -228,4 +228,14 @@ public final class AutoValueMoshiFunctionalTest {
     }
     assertThat(adapter.getClass()).isSameAs(NativeMoshiClassJsonAdapter.class);
   }
+
+  @Test
+  public void genericNativeMoshiLookup() {
+    JsonAdapter<GenericNativeMoshiClass<String>> adapter = moshi.adapter(
+        Types.newParameterizedType(GenericNativeMoshiClass.class, String.class));
+    if (adapter instanceof NullSafeJsonAdapter) {
+      adapter = ((NullSafeJsonAdapter<GenericNativeMoshiClass<String>>) adapter).delegate();
+    }
+    assertThat(adapter.getClass()).isSameAs(GenericNativeMoshiClassJsonAdapter.class);
+  }
 }
