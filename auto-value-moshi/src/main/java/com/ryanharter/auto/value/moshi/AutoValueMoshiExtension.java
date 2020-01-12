@@ -622,6 +622,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
 
     // Will be empty if using a AutoValue builder
     Map<Property, FieldSpec> fields = new LinkedHashMap<>(properties.size());
+    List<CodeBlock> constructorCall = Lists.newArrayListWithExpectedSize(properties.size());
     // Will be absent if not using AutoValue builder
     Optional<FieldSpec> builderField = Optional.ofNullable(builderContext)
             .map(ctx -> FieldSpec
@@ -672,6 +673,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     readMethod.beginControlFlow("switch ($N.selectName(OPTIONS))", reader);
     for (Property property : properties) {
       if (property.isTransient()) {
+        constructorCall.add(CodeBlock.of("null"));
         continue;
       }
       CodeBlock.Builder block = CodeBlock.builder();
@@ -681,7 +683,9 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       if (builderField.isPresent()) {
         addBuilderFieldSetting(block, property, adapter, reader, builderField.get(), builderContext);
       } else {
-        addFieldSetting(block, fields.get(property), adapter, reader);
+        FieldSpec localField = fields.get(property);
+        constructorCall.add(CodeBlock.of("$N", localField));
+        addFieldSetting(block, localField, adapter, reader);
       }
       readMethod.addCode(block.build());
       readMethod.addStatement("break");
@@ -702,10 +706,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     if (builderField.isPresent()) {
       readMethod.addStatement("return $N.$L", builderField.get(), builderContext.buildMethod().get());
     } else {
-      CodeBlock params = fields.values()
-          .stream()
-          .map(field -> CodeBlock.of("$N", field))
-          .collect(CodeBlock.joining(", "));
+      CodeBlock params = CodeBlock.join(constructorCall, ", ");
       readMethod.addStatement("return new $T($L)", className, params);
     }
     return readMethod.build();
