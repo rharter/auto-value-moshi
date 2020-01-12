@@ -245,10 +245,17 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
         addControlFlow(classes, elementTypeName, numClasses);
         numClasses++;
 
-        String returnStatement =
-            requestNullSafeAdapters ? "return $T.$L($N).nullSafe()" : "return $T.$L($N)";
         ExecutableElement jsonAdapterMethod = getJsonAdapterMethod(element);
-        classes.addStatement(returnStatement, element, jsonAdapterMethod.getSimpleName(), moshi);
+        CodeBlock moshiArgBlock = jsonAdapterMethod.getParameters().size() == 0
+            ? CodeBlock.of("")
+            : CodeBlock.of("$N", moshi);
+        String returnStatement =
+            requestNullSafeAdapters ? "return $T.$L($L).nullSafe()" : "return $T.$L($L)";
+        classes.addStatement(
+            returnStatement,
+            element,
+            jsonAdapterMethod.getSimpleName(),
+            moshiArgBlock);
       }
     }
 
