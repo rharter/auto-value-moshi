@@ -246,9 +246,13 @@ public final class AutoValueMoshiFunctionalTest {
     assertThat(adapter.getClass()).isSameAs(GenericNativeMoshiClassJsonAdapter.class);
 
     JsonAdapter<GenericNativeMoshiClass.Nested<String>> nestedAdapter = moshi.adapter(
-        Types.newParameterizedTypeWithOwner(GenericNativeMoshiClass.class, GenericNativeMoshiClass.Nested.class, String.class));
+        Types.newParameterizedTypeWithOwner(
+            GenericNativeMoshiClass.class,
+            GenericNativeMoshiClass.Nested.class,
+            String.class));
     if (nestedAdapter instanceof NullSafeJsonAdapter) {
-      nestedAdapter = ((NullSafeJsonAdapter<GenericNativeMoshiClass.Nested<String>>) nestedAdapter).delegate();
+      nestedAdapter = ((NullSafeJsonAdapter<GenericNativeMoshiClass.Nested<String>>) nestedAdapter)
+          .delegate();
     }
     assertThat(nestedAdapter.getClass()).isSameAs(GenericNativeMoshiClass_NestedJsonAdapter.class);
   }
