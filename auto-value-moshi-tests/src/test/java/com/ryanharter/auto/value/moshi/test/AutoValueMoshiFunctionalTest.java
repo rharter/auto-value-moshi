@@ -3,6 +3,7 @@ package com.ryanharter.auto.value.moshi.test;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
 import com.squareup.moshi.Types;
+import com.squareup.moshi.internal.NullSafeJsonAdapter;
 import org.junit.Test;
 
 import java.lang.reflect.Type;
@@ -217,5 +218,42 @@ public final class AutoValueMoshiFunctionalTest {
 
     assertThat(fromJson.value()).isEqualTo("value");
     assertThat(fromJson.list()).isNull();
+  }
+
+  @Test
+  public void nativeMoshiLookup() {
+    JsonAdapter<NativeMoshiClass> adapter = moshi.adapter(NativeMoshiClass.class);
+    if (adapter instanceof NullSafeJsonAdapter) {
+      adapter = ((NullSafeJsonAdapter<NativeMoshiClass>) adapter).delegate();
+    }
+    assertThat(adapter.getClass()).isSameAs(NativeMoshiClassJsonAdapter.class);
+
+    JsonAdapter<NativeMoshiClass.Nested> nestedAdapter
+        = moshi.adapter(NativeMoshiClass.Nested.class);
+    if (nestedAdapter instanceof NullSafeJsonAdapter) {
+      nestedAdapter = ((NullSafeJsonAdapter<NativeMoshiClass.Nested>) nestedAdapter).delegate();
+    }
+    assertThat(nestedAdapter.getClass()).isSameAs(NativeMoshiClass_NestedJsonAdapter.class);
+  }
+
+  @Test
+  public void genericNativeMoshiLookup() {
+    JsonAdapter<GenericNativeMoshiClass<String>> adapter = moshi.adapter(
+        Types.newParameterizedType(GenericNativeMoshiClass.class, String.class));
+    if (adapter instanceof NullSafeJsonAdapter) {
+      adapter = ((NullSafeJsonAdapter<GenericNativeMoshiClass<String>>) adapter).delegate();
+    }
+    assertThat(adapter.getClass()).isSameAs(GenericNativeMoshiClassJsonAdapter.class);
+
+    JsonAdapter<GenericNativeMoshiClass.Nested<String>> nestedAdapter = moshi.adapter(
+        Types.newParameterizedTypeWithOwner(
+            GenericNativeMoshiClass.class,
+            GenericNativeMoshiClass.Nested.class,
+            String.class));
+    if (nestedAdapter instanceof NullSafeJsonAdapter) {
+      nestedAdapter = ((NullSafeJsonAdapter<GenericNativeMoshiClass.Nested<String>>) nestedAdapter)
+          .delegate();
+    }
+    assertThat(nestedAdapter.getClass()).isSameAs(GenericNativeMoshiClass_NestedJsonAdapter.class);
   }
 }

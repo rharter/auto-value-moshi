@@ -8,6 +8,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -23,6 +24,7 @@ import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
 import com.squareup.moshi.Json;
 import com.squareup.moshi.JsonAdapter;
+import com.squareup.moshi.JsonClass;
 import com.squareup.moshi.JsonQualifier;
 import com.squareup.moshi.JsonReader;
 import com.squareup.moshi.JsonWriter;
@@ -67,6 +69,7 @@ import static javax.lang.model.element.Modifier.STATIC;
 @AutoService(AutoValueExtension.class)
 public final class AutoValueMoshiExtension extends AutoValueExtension {
   private static final ClassName ADAPTER_CLASS_NAME = ClassName.get(JsonAdapter.class);
+  private static final String MOSHI_GENERATOR_KEY = "avm";
 
   private static class Property {
     final String methodName;
@@ -122,8 +125,11 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
   }
 
   @Override public boolean applicable(Context context) {
-    // check that the class contains a static method returning a JsonAdapter
     TypeElement type = context.autoValueClass();
+    if (generateExternalAdapter(type)) {
+      return true;
+    }
+    // check that the class contains a static method returning a JsonAdapter
     ParameterizedTypeName jsonAdapterType = ParameterizedTypeName.get(
         ADAPTER_CLASS_NAME, TypeName.get(type.asType()));
     TypeName returnedJsonAdapter = null;
@@ -167,6 +173,11 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     return false;
   }
 
+  private static boolean generateExternalAdapter(TypeElement element) {
+    JsonClass jsonClass = element.getAnnotation(JsonClass.class);
+    return jsonClass != null && jsonClass.generateAdapter() && MOSHI_GENERATOR_KEY.equals(jsonClass.generator());
+  }
+
   @Override public String generateClass(Context context, String className, String classToExtend,
       boolean isFinal) {
     List<Property> properties = readProperties(context.properties());
@@ -191,32 +202,65 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       superclass = TypeVariableName.get(classToExtend);
     }
 
-    TypeSpec typeAdapter =
-        createTypeAdapter(classNameClass, autoValueClassName, genericTypeNames, properties,
-                context.builder().orElse(null), context.processingEnvironment());
+    boolean generateExternalAdapter = generateExternalAdapter(context.autoValueClass());
 
-    TypeSpec.Builder subclass = TypeSpec.classBuilder(className)
-        .superclass(superclass)
-        .addType(typeAdapter)
-        .addMethod(generateConstructor(properties));
+    String adapterClassName = generateExternalAdapter
+        ? Types.generatedJsonAdapterName(Joiner.on("$").join(autoValueClassName.simpleNames()))
+        : "MoshiJsonAdapter";
 
-    GeneratedAnnotationSpecs.generatedAnnotationSpec(
+    TypeSpec.Builder typeAdapterBuilder = createTypeAdapter(classNameClass,
+        autoValueClassName,
+        genericTypeNames,
+        properties,
+        context.builder().orElse(null),
+        context.processingEnvironment(),
+        adapterClassName);
+
+    Optional<AnnotationSpec> generatedAnnotation = GeneratedAnnotationSpecs.generatedAnnotationSpec(
         context.processingEnvironment().getElementUtils(),
         context.processingEnvironment().getSourceVersion(),
         AutoValueMoshiExtension.class
-    ).ifPresent(subclass::addAnnotation);
+    );
 
-    if (shouldCreateGenerics) {
-      subclass.addTypeVariables(Arrays.asList(genericTypeNames));
-    }
-
-    if (isFinal) {
-      subclass.addModifiers(FINAL);
+    if (generateExternalAdapter(context.autoValueClass())) {
+      typeAdapterBuilder.addOriginatingElement(context.autoValueClass());
+      generatedAnnotation.ifPresent(typeAdapterBuilder::addAnnotation);
+      JavaFile javaFile = JavaFile.builder(context.packageName(), typeAdapterBuilder.build())
+          .skipJavaLangImports(true)
+          .build();
+      try {
+        javaFile.writeTo(context.processingEnvironment().getFiler());
+      } catch (IOException e) {
+        context.processingEnvironment().getMessager()
+            .printMessage(Diagnostic.Kind.ERROR,
+                String.format(
+                    "Failed to write external TypeAdapter for element \"%s\" with reason \"%s\"",
+                    context.autoValueClass(),
+                    e.getMessage()));
+      }
+      return null;
     } else {
-      subclass.addModifiers(ABSTRACT);
-    }
+      TypeSpec typeAdapter = typeAdapterBuilder.addModifiers(STATIC).build();
 
-    return JavaFile.builder(context.packageName(), subclass.build()).build().toString();
+      TypeSpec.Builder subclass = TypeSpec.classBuilder(className)
+          .superclass(superclass)
+          .addType(typeAdapter)
+          .addMethod(generateConstructor(properties));
+
+      generatedAnnotation.ifPresent(subclass::addAnnotation);
+
+      if (shouldCreateGenerics) {
+        subclass.addTypeVariables(Arrays.asList(genericTypeNames));
+      }
+
+      if (isFinal) {
+        subclass.addModifiers(FINAL);
+      } else {
+        subclass.addModifiers(ABSTRACT);
+      }
+
+      return JavaFile.builder(context.packageName(), subclass.build()).build().toString();
+    }
   }
 
   private List<Property> readProperties(Map<String, ExecutableElement> properties) {
@@ -266,11 +310,16 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     return builder.build();
   }
 
-  private TypeSpec createTypeAdapter(ClassName className, ClassName autoValueClassName,
-      TypeVariableName[] genericTypeNames, List<Property> properties, @Nullable BuilderContext builderContext,
-                                     ProcessingEnvironment processingEnvironment) {
+  private TypeSpec.Builder createTypeAdapter(
+      ClassName className,
+      ClassName autoValueClassName,
+      TypeVariableName[] genericTypeNames,
+      List<Property> properties,
+      @Nullable BuilderContext builderContext,
+      ProcessingEnvironment processingEnvironment,
+      String adapterClassName
+  ) {
 
-    TypeName typeAdapterClass = ParameterizedTypeName.get(ADAPTER_CLASS_NAME, autoValueClassName);
     final TypeName autoValueTypeName = genericTypeNames != null && genericTypeNames.length > 0
             ? ParameterizedTypeName.get(autoValueClassName, genericTypeNames)
             : autoValueClassName;
@@ -360,8 +409,8 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
 
     ClassName jsonAdapterClassName = ClassName.get(JsonAdapter.class);
     ParameterizedTypeName superClass = ParameterizedTypeName.get(jsonAdapterClassName, autoValueTypeName);
-    TypeSpec.Builder classBuilder = TypeSpec.classBuilder("MoshiJsonAdapter")
-        .addModifiers(PUBLIC, STATIC, FINAL)
+    TypeSpec.Builder classBuilder = TypeSpec.classBuilder(adapterClassName)
+        .addModifiers(PUBLIC, FINAL)
         .superclass(superClass)
         .addFields(adapters.values())
         .addMethod(constructor.build())
@@ -388,7 +437,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       classBuilder.addMethod(createAdapterWithQualifierMethod(autoValueClassName));
     }
 
-    return classBuilder.build();
+    return classBuilder;
   }
 
   private int getTypeIndexInArray(TypeVariableName[] array, TypeName typeName) {
