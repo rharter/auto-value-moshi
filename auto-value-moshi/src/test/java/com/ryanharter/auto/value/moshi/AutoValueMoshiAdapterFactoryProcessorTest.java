@@ -606,7 +606,7 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
         .generatesSources(expected);
   }
 
-  @Test public void noAutoValueModels_shouldError() {
+  @Test public void noAutoValueModelsShouldError() {
     JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
         + "package test;\n"
         + "import com.squareup.moshi.JsonAdapter;\n"
@@ -637,7 +637,7 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
             + "compilation classpath");
   }
 
-  @Test public void noAutoValueModelsWithAdapterMethods_shouldError() {
+  @Test public void noAutoValueModelsWithAdapterMethodsShouldError() {
     JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
         + "package test;\n"
         + "import com.google.auto.value.AutoValue;\n"
