@@ -13,4 +13,16 @@ public abstract class GenericNativeMoshiClass<T> {
     Builder<T> property(T prop);
     GenericNativeMoshiClass<T> build();
   }
+
+  @JsonClass(generateAdapter = true, generator = "avm")
+  @AutoValue
+  public static abstract class Nested<T> {
+    public abstract T property();
+
+    @AutoValue.Builder
+    public interface Builder<T> {
+      Builder<T> property(T prop);
+      Nested<T> build();
+    }
+  }
 }

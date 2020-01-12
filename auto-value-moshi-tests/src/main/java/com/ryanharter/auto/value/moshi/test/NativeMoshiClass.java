@@ -13,4 +13,16 @@ public abstract class NativeMoshiClass {
     Builder property(String prop);
     NativeMoshiClass build();
   }
+
+  @JsonClass(generateAdapter = true, generator = "avm")
+  @AutoValue
+  public static abstract class Nested {
+    public abstract String property();
+
+    @AutoValue.Builder
+    public interface Builder {
+      Builder property(String prop);
+      Nested build();
+    }
+  }
 }
