@@ -45,6 +45,7 @@ public final class AutoValueMoshiExtensionTest {
         + "import com.google.auto.value.AutoValue;\n"
         + "import com.squareup.moshi.JsonAdapter;\n"
         + "import com.squareup.moshi.Moshi;\n"
+        + "import io.sweers.autotransient.AutoTransient;\n"
         + "import java.util.Map;\n"
         + "import java.util.Set;\n"
         + "@AutoValue abstract class Test {\n"
@@ -67,6 +68,8 @@ public final class AutoValueMoshiExtensionTest {
         + "public abstract Map<String, Set<? super String>> g();\n"
         // Nullable type
         + "@Nullable abstract String i();\n"
+        // Transient property
+        + "@AutoTransient @Nullable abstract String j();\n"
         + "}\n"
     );
 
@@ -91,8 +94,8 @@ public final class AutoValueMoshiExtensionTest {
         + "@Generated(\"com.ryanharter.auto.value.moshi.AutoValueMoshiExtension\")\n"
         + "final class AutoValue_Test extends $AutoValue_Test {\n"
         + "  AutoValue_Test(String a, int[] b, int c, String d, Map<String, Number> e, Set<? extends String> f,\n"
-        + "      Map<String, Set<? super String>> g, @Nullable String i) {\n"
-        + "    super(a, b, c, d, e, f, g, i);\n"
+        + "      Map<String, Set<? super String>> g, @Nullable String i, @Nullable String j) {\n"
+        + "    super(a, b, c, d, e, f, g, i, j);\n"
         + "  }\n"
         + "\n"
         + "  public static final class MoshiJsonAdapter extends JsonAdapter<Test> {\n"
@@ -169,7 +172,7 @@ public final class AutoValueMoshiExtensionTest {
         + "        }\n"
         + "      }\n"
         + "      reader.endObject();\n"
-        + "      return new AutoValue_Test(a, b, c, d, e, f, g, i);\n"
+        + "      return new AutoValue_Test(a, b, c, d, e, f, g, i, null);\n"
         + "    }\n"
         + "    @Override\n"
         + "    public void toJson(JsonWriter writer, Test value) throws IOException {\n"
