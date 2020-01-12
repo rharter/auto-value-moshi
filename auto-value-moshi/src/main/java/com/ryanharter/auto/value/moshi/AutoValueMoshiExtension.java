@@ -290,7 +290,6 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     }
 
     boolean needsAdapterWithQualifierMethod = false;
-    boolean needsAdaperMethod = false;
     List<String> names = Lists.newArrayListWithCapacity(adapters.size());
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
@@ -338,23 +337,24 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       } else if (genericTypeNames != null && prop.type instanceof ParameterizedTypeName) {
         // Property is a parameterized type that may or may not use generics (like "List<T>" or
         // "List<String>"
-        needsAdaperMethod = true;
         ParameterizedTypeName typeName = ((ParameterizedTypeName) prop.type);
         CodeBlock adapterTargetType = makeType(typeName, typesArray, genericTypeNames);
-        constructor.addStatement("this.$N = adapter($N, $L)$L",
-                moshiField, moshiInstance, adapterTargetType, nullableOrNothing);
+        constructor.addStatement("this.$N = $N.<$T>adapter($L)$L",
+                moshiField, moshiInstance, typeName, adapterTargetType, nullableOrNothing);
       } else if (genericTypeNames != null
           && getTypeIndexInArray(genericTypeNames, prop.type) >= 0) {
         // Property is a simple generic type (like "T"). Resolve the type at runtime through the
         // types array passed through the constructor
-        needsAdaperMethod = true;
-        constructor.addStatement("this.$N = adapter($N, $N[$L])$L", moshiField, moshiInstance,
-                typesArray, getTypeIndexInArray(genericTypeNames, prop.type), nullableOrNothing);
+        constructor.addStatement("this.$N = $N.<$T>adapter($N[$L])$L", moshiField, moshiInstance,
+            prop.type, typesArray, getTypeIndexInArray(genericTypeNames, prop.type),
+            nullableOrNothing);
       } else {
         // Normal property
-        needsAdaperMethod = true;
-        constructor.addStatement("this.$N = adapter($N, $L)$L", moshiField, moshiInstance,
-                makeType(prop.type, typesArray, genericTypeNames), nullableOrNothing);
+        CodeBlock possibleGenerics = prop.type instanceof ParameterizedTypeName
+            ? CodeBlock.of("<$T>", prop.type)
+            : CodeBlock.of("");
+        constructor.addStatement("this.$N = $N.$Ladapter($L)$L", moshiField, moshiInstance,
+            possibleGenerics, makeType(prop.type, typesArray, genericTypeNames), nullableOrNothing);
       }
     }
 
@@ -384,10 +384,6 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       classBuilder.addTypeVariables(Arrays.asList(genericTypeNames));
     }
 
-    if (needsAdaperMethod) {
-      classBuilder.addMethod(createAdapterMethod());
-    }
-
     if (needsAdapterWithQualifierMethod) {
       classBuilder.addMethod(createAdapterWithQualifierMethod(autoValueClassName));
     }
@@ -402,19 +398,6 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       }
     }
     return -1;
-  }
-
-  private MethodSpec createAdapterMethod() {
-    ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
-    ParameterSpec type = ParameterSpec.builder(Type.class, "adapterType").build();
-    return MethodSpec.methodBuilder("adapter")
-        .addModifiers(PRIVATE)
-        .addParameters(ImmutableSet.of(moshi, type))
-        .returns(ADAPTER_CLASS_NAME)
-        .addCode(CodeBlock.builder()
-            .addStatement("return $N.adapter(adapterType)", moshi)
-            .build())
-        .build();
   }
 
   private MethodSpec createAdapterWithQualifierMethod(TypeName autoValueClassName) {
