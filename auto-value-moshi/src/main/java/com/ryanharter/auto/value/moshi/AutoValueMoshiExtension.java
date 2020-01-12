@@ -32,15 +32,10 @@ import com.squareup.moshi.Moshi;
 import com.squareup.moshi.Types;
 import io.sweers.autotransient.AutoTransient;
 import java.io.IOException;
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +47,6 @@ import javax.annotation.Nullable;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.TypeParameterElement;
@@ -78,6 +72,8 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     final TypeName type;
     final ImmutableSet<String> annotations;
     final boolean isTransient;
+    final ImmutableSet<AnnotationMirror> jsonQualifiers;
+    final boolean hasJsonQualifiers;
 
     @Nullable
     static Property create(Messager messager, String name, ExecutableElement element) {
@@ -96,8 +92,20 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       this.element = element;
 
       type = TypeName.get(element.getReturnType());
-      annotations = buildAnnotations(element);
       isTransient = element.getAnnotation(AutoTransient.class) != null;
+      ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+      ImmutableSet.Builder<AnnotationMirror> qualifiersBuilder = ImmutableSet.builder();
+      for (AnnotationMirror annotation : element.getAnnotationMirrors()) {
+        builder.add(annotation.getAnnotationType().asElement().toString());
+        //noinspection UnstableApiUsage
+        if (MoreElements.isAnnotationPresent(annotation.getAnnotationType().asElement(), JsonQualifier.class)) {
+          qualifiersBuilder.add(annotation);
+        }
+      }
+
+      annotations = builder.build();
+      jsonQualifiers = qualifiersBuilder.build();
+      hasJsonQualifiers = !jsonQualifiers.isEmpty();
     }
 
     String serializedName() {
@@ -124,15 +132,6 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
         }
       }
       return null;
-    }
-
-    private ImmutableSet<String> buildAnnotations(ExecutableElement element) {
-      ImmutableSet.Builder<String> builder = ImmutableSet.builder();
-      for (AnnotationMirror annotation : element.getAnnotationMirrors()) {
-        builder.add(annotation.getAnnotationType().asElement().toString());
-      }
-
-      return builder.build();
     }
   }
 
@@ -304,8 +303,18 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       }
       TypeName type = property.type.isPrimitive() ? property.type.box() : property.type;
       ParameterizedTypeName adp = ParameterizedTypeName.get(ADAPTER_CLASS_NAME, type);
-      fields.put(property,
-          FieldSpec.builder(adp, property.humanName + "Adapter", PRIVATE, FINAL).build());
+      FieldSpec.Builder builder
+          = FieldSpec.builder(adp, property.humanName + "Adapter", PRIVATE, FINAL);
+
+      // Bolt qualifier annotations onto the adapter field they're used for. We'll look these up
+      // at runtime.
+      if (property.hasJsonQualifiers) {
+        for (AnnotationMirror qualifier : property.jsonQualifiers) {
+          builder.addAnnotation(AnnotationSpec.get(qualifier));
+        }
+      }
+
+      fields.put(property, builder.build());
     }
 
     return fields.build();
@@ -365,52 +374,20 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       constructor.addParameter(typesArray);
     }
 
-    boolean needsAdapterWithQualifierMethod = false;
     List<String> names = Lists.newArrayListWithCapacity(adapters.size());
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec moshiField = entry.getValue();
       names.add(prop.serializedName());
 
-      List<TypeVariableName> usedDeclaredGenericTypeNames = new ArrayList<>();
-
-      if (genericTypeNames != null) {
-        if (prop.type instanceof TypeVariableName) {
-          usedDeclaredGenericTypeNames.add((TypeVariableName) prop.type);
-        }
-        if (prop.type instanceof ParameterizedTypeName) {
-          for (TypeName t : ((ParameterizedTypeName) prop.type).typeArguments) {
-            if (t instanceof TypeVariableName) {
-              usedDeclaredGenericTypeNames.add((TypeVariableName) t);
-            }
-          }
-        }
-      }
-
-      boolean usesJsonQualifier = false;
-      for (AnnotationMirror annotationMirror : prop.element.getAnnotationMirrors()) {
-        Element annotationType = annotationMirror.getAnnotationType().asElement();
-        if (annotationType.getAnnotation(JsonQualifier.class) != null) {
-          usesJsonQualifier = true;
-          needsAdapterWithQualifierMethod = true;
-        }
-      }
+      // TODO wire this in to adapter calls below via $L
+      CodeBlock possibleQualifierLookup = prop.hasJsonQualifiers
+          ? CodeBlock.of(", $T.getFieldJsonQualifierAnnotations(getClass(), $S)", Types.class, moshiField)
+          : CodeBlock.of("");
 
       // if the property is @Nullable, we append a .nullSafe() to the adapter
       String nullableOrNothing = prop.nullable() ? ".nullSafe()" : "";
-      if (!usedDeclaredGenericTypeNames.isEmpty() && usesJsonQualifier) {
-        // Property uses generics and JsonQualifiers
-        needsAdapterWithQualifierMethod = true;
-        constructor.addStatement("this.$N = adapterWithQualifier($N, $S, $N[$L])$L",
-                moshiField, moshiInstance, prop.methodName, typesArray,
-                getTypeIndexInArray(genericTypeNames, usedDeclaredGenericTypeNames.get(0)),
-                nullableOrNothing);
-      } else if (usesJsonQualifier) {
-        // Property only uses JsonQualifiers
-        needsAdapterWithQualifierMethod = true;
-        constructor.addStatement("this.$N = adapterWithQualifier($N, $S, null)$L", moshiField,
-            moshiInstance, prop.methodName, nullableOrNothing);
-      } else if (genericTypeNames != null && prop.type instanceof ParameterizedTypeName) {
+      if (genericTypeNames != null && prop.type instanceof ParameterizedTypeName) {
         // Property is a parameterized type that may or may not use generics (like "List<T>" or
         // "List<String>"
         ParameterizedTypeName typeName = ((ParameterizedTypeName) prop.type);
@@ -460,10 +437,6 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       classBuilder.addTypeVariables(Arrays.asList(genericTypeNames));
     }
 
-    if (needsAdapterWithQualifierMethod) {
-      classBuilder.addMethod(createAdapterWithQualifierMethod(autoValueClassName));
-    }
-
     return classBuilder;
   }
 
@@ -474,52 +447,6 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       }
     }
     return -1;
-  }
-
-  private MethodSpec createAdapterWithQualifierMethod(TypeName autoValueClassName) {
-    TypeName rawClassName = autoValueClassName;
-    // Resolve the raw class name if it uses generics so we don't run in to a compilation error down
-    // the road when we reverence it with `N.class`
-    if (rawClassName instanceof ParameterizedTypeName)
-      rawClassName = ((ParameterizedTypeName) rawClassName).rawType;
-    ParameterSpec moshi = ParameterSpec.builder(Moshi.class, "moshi").build();
-    ParameterSpec methodName = ParameterSpec.builder(String.class, "methodName").build();
-    ParameterSpec declaredGenericType = ParameterSpec.builder(Type.class,
-        "declaredGenericType").build();
-    return MethodSpec.methodBuilder("adapterWithQualifier")
-        .addModifiers(PRIVATE)
-        .addParameters(ImmutableSet.of(moshi, methodName, declaredGenericType))
-        .returns(ADAPTER_CLASS_NAME)
-        .addCode(CodeBlock.builder()
-            .beginControlFlow("try")
-            .addStatement("$T method = $T.class.getMethod($N)",
-                Method.class, rawClassName, methodName)
-            .addStatement("$T<$T> annotations = new $T<>()",
-                Set.class, Annotation.class, LinkedHashSet.class)
-            .beginControlFlow("for ($T annotation : method.getAnnotations())", Annotation.class)
-            .beginControlFlow("if (annotation.annotationType().isAnnotationPresent($T.class))",
-                JsonQualifier.class)
-            .addStatement("annotations.add(annotation)")
-            .endControlFlow()
-            .endControlFlow()
-            .addStatement("$T adapterType = method.getGenericReturnType()", Type.class)
-            .beginControlFlow("if (declaredGenericType != null)")
-            .beginControlFlow("if (adapterType instanceof $T)", ParameterizedType.class)
-            .addStatement("adapterType = $T.newParameterizedType((($T) adapterType).getRawType(), "
-                + "declaredGenericType)",
-                Types.class, ParameterizedType.class)
-            .endControlFlow()
-            .beginControlFlow("else if (adapterType instanceof $T)", TypeVariable.class)
-            .addStatement("adapterType = declaredGenericType")
-            .endControlFlow()
-            .endControlFlow()
-            .addStatement("return $N.adapter(adapterType, annotations)", moshi)
-            .nextControlFlow("catch ($T e)", NoSuchMethodException.class)
-            .addStatement("throw new RuntimeException(\"No method named \" + $N, e)", methodName)
-            .endControlFlow()
-            .build()
-        )
-        .build();
   }
 
   private MethodSpec createWriteMethod(TypeName autoValueTypeName,
