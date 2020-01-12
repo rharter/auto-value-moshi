@@ -3,6 +3,7 @@ package com.ryanharter.auto.value.moshi.test;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
 import com.squareup.moshi.Types;
+import com.squareup.moshi.internal.NullSafeJsonAdapter;
 import org.junit.Test;
 
 import java.lang.reflect.Type;
@@ -217,5 +218,14 @@ public final class AutoValueMoshiFunctionalTest {
 
     assertThat(fromJson.value()).isEqualTo("value");
     assertThat(fromJson.list()).isNull();
+  }
+
+  @Test
+  public void nativeMoshiLookup() {
+    JsonAdapter<NativeMoshiClass> adapter = moshi.adapter(NativeMoshiClass.class);
+    if (adapter instanceof NullSafeJsonAdapter) {
+      adapter = ((NullSafeJsonAdapter<NativeMoshiClass>) adapter).delegate();
+    }
+    assertThat(adapter.getClass()).isSameAs(NativeMoshiClassJsonAdapter.class);
   }
 }
