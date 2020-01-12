@@ -2094,7 +2094,7 @@ public final class AutoValueMoshiExtensionTest {
         .and().generatesSources(expected);
   }
 
-  @Test public void transientRequiredProperty_shouldFail() {
+  @Test public void transientRequiredPropertyShouldFail() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
         + "import com.google.auto.value.AutoValue;\n"
