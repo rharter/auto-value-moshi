@@ -39,7 +39,6 @@ import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -703,17 +702,11 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     if (builderField.isPresent()) {
       readMethod.addStatement("return $N.$L", builderField.get(), builderContext.buildMethod().get());
     } else {
-      StringBuilder format = new StringBuilder("return new ");
-      format.append(className.simpleName().replaceAll("\\$", ""));
-      format.append("(");
-      Iterator<FieldSpec> iterator = fields.values().iterator();
-      while (iterator.hasNext()) {
-        iterator.next();
-        format.append("$N");
-        if (iterator.hasNext()) format.append(", ");
-      }
-      format.append(")");
-      readMethod.addStatement(format.toString(), fields.values().toArray());
+      CodeBlock params = fields.values()
+          .stream()
+          .map(field -> CodeBlock.of("$N", field))
+          .collect(CodeBlock.joining(", "));
+      readMethod.addStatement("return new $T($L)", className, params);
     }
     return readMethod.build();
   }
