@@ -98,6 +98,7 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
     if (adapterFactories.isEmpty()) {
       return false;
     }
+    Set<? extends Element> autoValueElements = roundEnv.getElementsAnnotatedWith(AutoValue.class);
     List<TypeElement> elements = roundEnv.getElementsAnnotatedWith(AutoValue.class)
         .stream()
         .map(e -> (TypeElement) e)
@@ -109,69 +110,88 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
         })
         .collect(toList());
 
-    if (!elements.isEmpty()) {
-      for (Element element : adapterFactories) {
-        if (!element.getModifiers().contains(ABSTRACT)) {
-          error(element, "Must be abstract!");
-        }
-        // Safe to cast because this is only applicable on types anyway
-        TypeElement type = (TypeElement) element;
-        if (!implementsJsonAdapterFactory(type)) {
-          error(element, "Must implement JsonAdapter.Factory!");
-        }
-        String adapterName = classNameOf(type);
-        PackageElement packageElement = packageElementOf(type);
-        String packageName = packageElement.getQualifiedName().toString();
+    if (elements.isEmpty()) {
+      Element reportableElement = adapterFactories.iterator().next();
+      if (!autoValueElements.isEmpty()) {
+        processingEnv.getMessager().printMessage(ERROR,
+            "Failed to write JsonAdapter.Factory: Cannot generate class for this "
+                + "@MoshiAdapterFactory-annotated element because while @AutoValue-annotated "
+                + "elements were found on the compilation classpath, none of them contain a "
+                + "requisite public static JsonAdapter-returning signature method to opt in to "
+                + "being included in @MoshiAdapterFactory-generated factories. See the "
+                + "auto-value-moshi README for more information on declaring these.",
+            reportableElement);
+      } else {
+        processingEnv.getMessager().printMessage(ERROR,
+            "Failed to write JsonAdapter.Factory: Cannot generate class for this "
+                + "@MoshiAdapterFactory-annotated element because no @AutoValue-annotated "
+                + "elements were found on the compilation classpath.",
+            reportableElement);
+      }
+      return false;
+    }
 
-        List<TypeElement> applicableElements = elements.stream()
-            .filter(e -> {
-              Visibility typeVisibility = Visibility.ofElement(e);
-              switch (typeVisibility) {
-                case PRIVATE:
-                  return false;
-                case DEFAULT:
-                case PROTECTED:
-                  if (!getPackage(e).equals(packageElement)) {
-                    return false;
-                  }
-                  break;
-              }
-              // If we got here, the class is visible. Now check the jsonAdapter method
-              ExecutableElement adapterMethod = getJsonAdapterMethod(e);
-              if (adapterMethod == null) {
+    for (Element element : adapterFactories) {
+      if (!element.getModifiers().contains(ABSTRACT)) {
+        error(element, "Must be abstract!");
+      }
+      // Safe to cast because this is only applicable on types anyway
+      TypeElement type = (TypeElement) element;
+      if (!implementsJsonAdapterFactory(type)) {
+        error(element, "Must implement JsonAdapter.Factory!");
+      }
+      String adapterName = classNameOf(type);
+      PackageElement packageElement = packageElementOf(type);
+      String packageName = packageElement.getQualifiedName().toString();
+
+      List<TypeElement> applicableElements = elements.stream()
+          .filter(e -> {
+            Visibility typeVisibility = Visibility.ofElement(e);
+            switch (typeVisibility) {
+              case PRIVATE:
                 return false;
-              }
-              Visibility methodVisibility = Visibility.ofElement(adapterMethod);
-              switch (methodVisibility) {
-                case PRIVATE:
+              case DEFAULT:
+              case PROTECTED:
+                if (!getPackage(e).equals(packageElement)) {
                   return false;
-                case DEFAULT:
-                case PROTECTED:
-                  if (!getPackage(adapterMethod).equals(packageElement)) {
-                    return false;
-                  }
-                  break;
-              }
-              return true;
-            })
-            .collect(toList());
+                }
+                break;
+            }
+            // If we got here, the class is visible. Now check the jsonAdapter method
+            ExecutableElement adapterMethod = getJsonAdapterMethod(e);
+            if (adapterMethod == null) {
+              return false;
+            }
+            Visibility methodVisibility = Visibility.ofElement(adapterMethod);
+            switch (methodVisibility) {
+              case PRIVATE:
+                return false;
+              case DEFAULT:
+              case PROTECTED:
+                if (!getPackage(adapterMethod).equals(packageElement)) {
+                  return false;
+                }
+                break;
+            }
+            return true;
+          })
+          .collect(toList());
 
-        MoshiAdapterFactory annotation = element.getAnnotation(MoshiAdapterFactory.class);
-        boolean requestNullSafeAdapters = annotation.nullSafe();
+      MoshiAdapterFactory annotation = element.getAnnotation(MoshiAdapterFactory.class);
+      boolean requestNullSafeAdapters = annotation.nullSafe();
 
-        TypeSpec jsonAdapterFactory = createJsonAdapterFactory(type,
-            applicableElements,
-            packageName,
-            adapterName,
-            requestNullSafeAdapters);
-        JavaFile file = JavaFile.builder(packageName, jsonAdapterFactory).build();
-        try {
-          file.writeTo(processingEnv.getFiler());
-        } catch (IOException e) {
-          processingEnv.getMessager()
-              .printMessage(ERROR,
-                  "Failed to write TypeAdapterFactory: " + e.getLocalizedMessage());
-        }
+      TypeSpec jsonAdapterFactory = createJsonAdapterFactory(type,
+          applicableElements,
+          packageName,
+          adapterName,
+          requestNullSafeAdapters);
+      JavaFile file = JavaFile.builder(packageName, jsonAdapterFactory).build();
+      try {
+        file.writeTo(processingEnv.getFiler());
+      } catch (IOException e) {
+        processingEnv.getMessager()
+            .printMessage(ERROR,
+                "Failed to write JsonAdapter.Factory: " + e.getLocalizedMessage());
       }
     }
 

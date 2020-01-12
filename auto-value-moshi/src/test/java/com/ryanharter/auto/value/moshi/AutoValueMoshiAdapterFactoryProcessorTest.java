@@ -606,4 +606,64 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
         .and()
         .generatesSources(expected);
   }
+
+  @Test public void noAutoValueModelsShouldError() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+        + "package test;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "public abstract class Foo {\n"
+        + "  public static JsonAdapter<Foo> jsonAdapter(Moshi moshi) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        + "  public abstract String getName();\n"
+        + "  public abstract boolean isAwesome();\n"
+        + "}");
+    JavaFileObject factorySource = JavaFileObjects.forSourceString("test.MyAdapterFactory", ""
+        + "package test;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.ryanharter.auto.value.moshi.MoshiAdapterFactory;\n"
+        + "@MoshiAdapterFactory\n"
+        + "public abstract class MyAdapterFactory implements JsonAdapter.Factory {\n"
+        + "  public static JsonAdapter.Factory create() {\n"
+        + "    return new AutoValueMoshi_MyAdapterFactory();\n"
+        + "  }\n"
+        + "}");
+
+    assertAbout(javaSources())
+        .that(ImmutableSet.of(source1, factorySource))
+        .processedWith(new AutoValueMoshiAdapterFactoryProcessor())
+        .failsToCompile()
+        .withErrorContaining("no @AutoValue-annotated elements were found on the "
+            + "compilation classpath");
+  }
+
+  @Test public void noAutoValueModelsWithAdapterMethodsShouldError() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "@AutoValue public abstract class Foo {\n"
+        + "  public abstract String getName();\n"
+        + "  public abstract boolean isAwesome();\n"
+        + "}");
+    JavaFileObject factorySource = JavaFileObjects.forSourceString("test.MyAdapterFactory", ""
+        + "package test;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.ryanharter.auto.value.moshi.MoshiAdapterFactory;\n"
+        + "@MoshiAdapterFactory\n"
+        + "public abstract class MyAdapterFactory implements JsonAdapter.Factory {\n"
+        + "  public static JsonAdapter.Factory create() {\n"
+        + "    return new AutoValueMoshi_MyAdapterFactory();\n"
+        + "  }\n"
+        + "}");
+
+    assertAbout(javaSources())
+        .that(ImmutableSet.of(source1, factorySource))
+        .processedWith(new AutoValueMoshiAdapterFactoryProcessor())
+        .failsToCompile()
+        .withErrorContaining("none of them contain a requisite public static "
+            + "JsonAdapter-returning signature method to opt in to being included in "
+            + "@MoshiAdapterFactory-generated factories");
+  }
 }
