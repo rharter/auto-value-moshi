@@ -118,6 +118,13 @@ Moshi moshi = new Moshi.Builder()
     .build();
 ```
 
+## Transient types
+
+To ignore certain properties from serialization, you can use the `@AutoTransient` annotation. This comes from a 
+shared transience annotations library and is an `api` dependency of the runtime artifact. You can annotate
+a property and it will be treated as `transient` for both serialization and deserialization. Note that
+this should only be applied to nullable properties.
+
 ## Download
 
 Add a Gradle dependency:

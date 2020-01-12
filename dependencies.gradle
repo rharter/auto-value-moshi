@@ -6,6 +6,7 @@ ext {
         // Main dependencies
         javaPoet      : '1.12.0',
         autoCommon    : '0.10',
+        autoTransient : '1.0.0',
         autoValue     : '1.7',
         autoService   : '1.0-rc6',
         guava         : '27.1-jre',
@@ -22,6 +23,7 @@ ext {
     libraries = [
         javaPoet            : "com.squareup:javapoet:$versions.javaPoet",
         autoCommon          : "com.google.auto:auto-common:$versions.autoCommon",
+        autoTransient       : "io.sweers.autotransient:autotransient:${versions.autoTransient}",
         autoValue           : "com.google.auto.value:auto-value:$versions.autoValue",
         autoValueAnnotations: "com.google.auto.value:auto-value-annotations:$versions.autoValue",
         autoService         : "com.google.auto.service:auto-service:$versions.autoService",
