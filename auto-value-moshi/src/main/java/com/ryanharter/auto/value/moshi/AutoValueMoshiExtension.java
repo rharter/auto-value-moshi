@@ -384,8 +384,9 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
           ? CodeBlock.of(", $T.getFieldJsonQualifierAnnotations(getClass(), $S)", Types.class, moshiField.name)
           : CodeBlock.of("");
 
-      // if the property is @Nullable, we append a .nullSafe() to the adapter
-      String nullableOrNothing = prop.nullable() ? ".nullSafe()" : "";
+      // if the property is @Nullable, we append a .nullSafe() to the adapter. If it's not, we'll
+      // add a nonNull() check.
+      String nullabilityMethod = prop.nullable() ? ".nullSafe()" : ".nonNull()";
       if (genericTypeNames != null && prop.type instanceof ParameterizedTypeName) {
         // Property is a parameterized type that may or may not use generics (like "List<T>" or
         // "List<String>"
@@ -397,7 +398,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
                 typeName,
                 adapterTargetType,
                 possibleQualifierLookup,
-                nullableOrNothing);
+                nullabilityMethod);
       } else if (genericTypeNames != null
           && getTypeIndexInArray(genericTypeNames, prop.type) >= 0) {
         // Property is a simple generic type (like "T"). Resolve the type at runtime through the
@@ -409,7 +410,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
             typesArray,
             getTypeIndexInArray(genericTypeNames, prop.type),
             possibleQualifierLookup,
-            nullableOrNothing);
+            nullabilityMethod);
       } else {
         // Normal property
         CodeBlock possibleGenerics = prop.type instanceof ParameterizedTypeName
@@ -421,7 +422,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
             possibleGenerics,
             makeType(prop.type, typesArray, genericTypeNames),
             possibleQualifierLookup,
-            nullableOrNothing);
+            nullabilityMethod);
       }
     }
 
