@@ -8,16 +8,10 @@ An extension for Google's [AutoValue](https://github.com/google/auto) that creat
 
 Simply include auto-value-moshi in your project and annotate your target autovalue class with Moshi's
 `@JsonClass` annotation. `generateAdpater` must be true, and the `generator` property value should
-be `"avg"`.
-
-@JsonClass(generateAdapter = true, generator = "autovalue")
-@AutoValue
-public abstract class Foo {
-
-}
+be `"avm"`.
 
 ```java
-@JsonClass(generateAdapter = true, generator = "autovalue")
+@JsonClass(generateAdapter = true, generator = "avm")
 @AutoValue
 public abstract class Foo {
   abstract String bar();
@@ -73,7 +67,7 @@ instantiate the class. If the `@AutoValue` class has a static no-argument factor
 useful for setting default values.
 
 ```java
-@JsonClass(generateAdapter = true, generator = "avg")
+@JsonClass(generateAdapter = true, generator = "avm")
 @AutoValue
 public abstract class Foo {
   abstract int bar();
