@@ -16,7 +16,7 @@ public abstract class GenericNativeMoshiClass<T> {
 
   @JsonClass(generateAdapter = true, generator = "avm")
   @AutoValue
-  public static abstract class Nested<T> {
+  public abstract static class Nested<T> {
     public abstract T property();
 
     @AutoValue.Builder
