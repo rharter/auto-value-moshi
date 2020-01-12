@@ -5,6 +5,7 @@ import com.google.auto.common.Visibility;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.AutoValueExtension;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -189,7 +190,7 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
       factory.addModifiers(PUBLIC);
     }
     factory.addModifiers(FINAL);
-    factory.superclass(ClassName.get(packageName, factoryName));
+    factory.superclass(ClassName.get(sourceElement));
 
     GeneratedAnnotationSpecs.generatedAnnotationSpec(
         processingEnv.getElementUtils(),
@@ -357,9 +358,7 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
    * Returns the name of the given type, including any enclosing types but not the package.
    */
   private static String classNameOf(TypeElement type) {
-    String name = type.getQualifiedName().toString();
-    String pkgName = packageNameOf(type);
-    return pkgName.isEmpty() ? name : name.substring(pkgName.length() + 1);
+    return Joiner.on("_").join(ClassName.get(type).simpleNames());
   }
 
   /**
