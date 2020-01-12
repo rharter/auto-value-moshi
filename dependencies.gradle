@@ -4,18 +4,18 @@ ext {
     versions = [
         java          : JavaVersion.VERSION_1_8,
         // Main dependencies
-        javaPoet      : '1.11.0',
+        javaPoet      : '1.12.0',
         autoCommon    : '0.10',
         autoValue     : '1.7',
         autoService   : '1.0-rc6',
         guava         : '27.1-jre',
-        moshi         : '1.7.0',
+        moshi         : '1.9.2',
         incapHelper   : '0.2',
         jsr305        : '3.0.2',
         // For testing
         junit         : '4.12',
-        truth         : '0.44',
-        compileTesting: '0.16',
+        truth         : '1.0',
+        compileTesting: '0.18',
         assertJ       : '2.5.0',
     ]
 
