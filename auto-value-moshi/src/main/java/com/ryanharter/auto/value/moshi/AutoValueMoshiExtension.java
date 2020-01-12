@@ -205,7 +205,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     boolean generateExternalAdapter = generateExternalAdapter(context.autoValueClass());
 
     String adapterClassName = generateExternalAdapter
-        ? Types.generatedJsonAdapterName(autoValueClassName.simpleName().replace(".", "$"))
+        ? Types.generatedJsonAdapterName(Joiner.on("$").join(autoValueClassName.simpleNames()))
         : "MoshiJsonAdapter";
 
     TypeSpec.Builder typeAdapterBuilder = createTypeAdapter(classNameClass,
