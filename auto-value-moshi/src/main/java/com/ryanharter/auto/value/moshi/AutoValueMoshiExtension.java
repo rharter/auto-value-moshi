@@ -30,6 +30,7 @@ import com.squareup.moshi.JsonReader;
 import com.squareup.moshi.JsonWriter;
 import com.squareup.moshi.Moshi;
 import com.squareup.moshi.Types;
+import io.sweers.autotransient.AutoTransient;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
@@ -77,14 +78,27 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     final ExecutableElement element;
     final TypeName type;
     final ImmutableSet<String> annotations;
+    final boolean isTransient;
 
-    Property(String name, ExecutableElement element) {
+    @Nullable
+    static Property create(Messager messager, String name, ExecutableElement element) {
+      Property property = new Property(name, element);
+      if (property.isTransient() && !property.nullable()) {
+        messager.printMessage(Diagnostic.Kind.ERROR, "Required property cannot be transient!", element);
+        return null;
+      } else {
+        return property;
+      }
+    }
+
+    private Property(String name, ExecutableElement element) {
       this.methodName = element.getSimpleName().toString();
       this.humanName = name;
       this.element = element;
 
       type = TypeName.get(element.getReturnType());
       annotations = buildAnnotations(element);
+      isTransient = element.getAnnotation(AutoTransient.class) != null;
     }
 
     String serializedName() {
@@ -98,6 +112,10 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
 
     boolean nullable() {
       return nullableAnnotation() != null;
+    }
+
+    boolean isTransient() {
+      return isTransient;
     }
 
     public String nullableAnnotation() {
@@ -180,7 +198,9 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
 
   @Override public String generateClass(Context context, String className, String classToExtend,
       boolean isFinal) {
-    List<Property> properties = readProperties(context.properties());
+    List<Property> properties = readProperties(
+        context.processingEnvironment().getMessager(),
+        context.properties());
 
     List<? extends TypeParameterElement> typeParams = context.autoValueClass().getTypeParameters();
     boolean shouldCreateGenerics = typeParams != null && typeParams.size() > 0;
@@ -263,10 +283,15 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     }
   }
 
-  private List<Property> readProperties(Map<String, ExecutableElement> properties) {
+  private List<Property> readProperties(
+      Messager messager,
+      Map<String, ExecutableElement> properties) {
     List<Property> values = new LinkedList<>();
     for (Map.Entry<String, ExecutableElement> entry : properties.entrySet()) {
-      values.add(new Property(entry.getKey(), entry.getValue()));
+      Property prop = Property.create(messager, entry.getKey(), entry.getValue());
+      if (prop != null) {
+        values.add(prop);
+      }
     }
     return values;
   }
@@ -275,6 +300,9 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     ImmutableMap.Builder<Property, FieldSpec> fields = ImmutableMap.builder();
 
     for (Property property : properties) {
+      if (property.isTransient()) {
+        continue;
+      }
       TypeName type = property.type.isPrimitive() ? property.type.box() : property.type;
       ParameterizedTypeName adp = ParameterizedTypeName.get(ADAPTER_CLASS_NAME, type);
       fields.put(property,
@@ -515,6 +543,9 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     nameAllocator.newName(valueName);
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
+      if (prop.isTransient()) {
+        continue;
+      }
       FieldSpec field = entry.getValue();
       nameAllocator.newName(prop.humanName, prop);
 
@@ -641,6 +672,9 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     // Leverage the select API for better perf
     readMethod.beginControlFlow("switch ($N.selectName(OPTIONS))", reader);
     for (Property property : properties) {
+      if (property.isTransient()) {
+        continue;
+      }
       CodeBlock.Builder block = CodeBlock.builder();
 
       FieldSpec adapter = adapters.get(property);

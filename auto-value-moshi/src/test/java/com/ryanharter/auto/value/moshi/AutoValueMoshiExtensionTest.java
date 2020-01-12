@@ -2093,4 +2093,26 @@ public final class AutoValueMoshiExtensionTest {
         .compilesWithoutError()
         .and().generatesSources(expected);
   }
+
+  @Test public void transientRequiredProperty_shouldFail() {
+    JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import io.sweers.autotransient.AutoTransient;\n"
+        + "import com.ryanharter.auto.value.moshi.Nullable;\n"
+        + "@AutoValue public abstract class Test {\n"
+        + "  @AutoTransient public abstract String transientProperty();\n"
+        + "  public static JsonAdapter<Test> typeAdapter(Moshi moshi) {\n"
+        + "    return new AutoValue_Test.MoshiJsonAdapter(gson);\n"
+        + "  }\n"
+        + "}");
+
+    assertAbout(javaSources())
+        .that(Arrays.asList(nullable, source))
+        .processedWith(new AutoValueProcessor())
+        .failsToCompile()
+        .withErrorContaining("Required property cannot be transient!");
+  }
 }
