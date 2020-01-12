@@ -118,7 +118,7 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
                 + "elements were found on the compilation classpath, none of them contain a "
                 + "requisite public static JsonAdapter-returning signature method to opt in to "
                 + "being included in @MoshiAdapterFactory-generated factories. See the "
-                + "auto-value-gson README for more information on declaring these.",
+                + "auto-value-moshi README for more information on declaring these.",
             reportableElement);
       } else {
         processingEnv.getMessager().printMessage(ERROR,
