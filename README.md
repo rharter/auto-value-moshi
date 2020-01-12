@@ -6,9 +6,37 @@ An extension for Google's [AutoValue](https://github.com/google/auto) that creat
 
 ## Usage
 
-Simply include auto-value-moshi in your project and add a public static method with the following
-signature to classes you want to get Moshi `JsonAdapter`s. You can also annotate your properties
-using `@Json` to define an alternate name for de/serialization.
+Simply include auto-value-moshi in your project and annotate your target autovalue class with Moshi's
+`@JsonClass` annotation. `generateAdpater` must be true, and the `generator` property value should
+be `"avg"`.
+
+@JsonClass(generateAdapter = true, generator = "autovalue")
+@AutoValue
+public abstract class Foo {
+
+}
+
+```java
+@JsonClass(generateAdapter = true, generator = "autovalue")
+@AutoValue
+public abstract class Foo {
+  abstract String bar();
+  @Json(name="Baz") abstract String baz();
+
+  public static JsonAdapter<Foo> jsonAdapter(Moshi moshi) {
+    return new AutoValue_Foo.MoshiJsonAdapter(moshi);
+  }
+}
+```
+
+Using `@JsonClass`, no further configuration is necessary. Moshi 1.9+ will automatically pick these
+types up at runtime.
+
+### _Legacy alternative_
+
+Add a public static method with the following signature to classes you want to get Moshi 
+`JsonAdapter`s. You can also annotate your properties using `@Json` to define an alternate name 
+for de/serialization.
 
 ```java
 @AutoValue public abstract class Foo {
@@ -24,6 +52,8 @@ using `@Json` to define an alternate name for de/serialization.
 Now build your project and de/serialize your Foo.
 
 ## Generics support
+
+_note: this section only applies if using the legacy opt-in via static method. If using `@JsonClass`, Moshi will handle this automatically_.
 
 If the annotated class uses generics, the static method needs a little modification. Simply add a `Type[]` parameter and pass it to the generated `MoshiJsonAdapter` class.
 
@@ -43,7 +73,9 @@ instantiate the class. If the `@AutoValue` class has a static no-argument factor
 useful for setting default values.
 
 ```java
-@AutoValue public abstract class Foo {
+@JsonClass(generateAdapter = true, generator = "avg")
+@AutoValue
+public abstract class Foo {
   abstract int bar();
   abstract String quux();
 
@@ -59,6 +91,8 @@ useful for setting default values.
 ```
 
 ## Factory
+
+_note: this section only applies if using the legacy opt-in via static method. If using `@JsonClass`, Moshi will handle this automatically_.
 
 Optionally, auto-value-moshi can create a single [JsonAdapter.Factory](http://square.github.io/moshi/1.x/moshi/com/squareup/moshi/JsonAdapter.Factory.html) so
 that you don't have to add each generated JsonAdapter to your Moshi instance manually.
