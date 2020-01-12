@@ -413,7 +413,9 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
             nullabilityMethod);
       } else {
         // Normal property
-        CodeBlock possibleGenerics = prop.type instanceof ParameterizedTypeName
+        boolean specifyGenerics = prop.type instanceof ParameterizedTypeName
+            || !possibleQualifierLookup.isEmpty();
+        CodeBlock possibleGenerics = specifyGenerics
             ? CodeBlock.of("<$T>", prop.type)
             : CodeBlock.of("");
         constructor.addStatement("this.$N = $N.$Ladapter($L$L)$L",
