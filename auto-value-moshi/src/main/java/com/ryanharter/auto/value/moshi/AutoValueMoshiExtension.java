@@ -380,9 +380,8 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       FieldSpec moshiField = entry.getValue();
       names.add(prop.serializedName());
 
-      // TODO wire this in to adapter calls below via $L
       CodeBlock possibleQualifierLookup = prop.hasJsonQualifiers
-          ? CodeBlock.of(", $T.getFieldJsonQualifierAnnotations(getClass(), $S)", Types.class, moshiField)
+          ? CodeBlock.of(", $T.getFieldJsonQualifierAnnotations(getClass(), $S)", Types.class, moshiField.name)
           : CodeBlock.of("");
 
       // if the property is @Nullable, we append a .nullSafe() to the adapter
@@ -392,22 +391,37 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
         // "List<String>"
         ParameterizedTypeName typeName = ((ParameterizedTypeName) prop.type);
         CodeBlock adapterTargetType = makeType(typeName, typesArray, genericTypeNames);
-        constructor.addStatement("this.$N = $N.<$T>adapter($L)$L",
-                moshiField, moshiInstance, typeName, adapterTargetType, nullableOrNothing);
+        constructor.addStatement("this.$N = $N.<$T>adapter($L$L)$L",
+                moshiField,
+                moshiInstance,
+                typeName,
+                adapterTargetType,
+                possibleQualifierLookup,
+                nullableOrNothing);
       } else if (genericTypeNames != null
           && getTypeIndexInArray(genericTypeNames, prop.type) >= 0) {
         // Property is a simple generic type (like "T"). Resolve the type at runtime through the
         // types array passed through the constructor
-        constructor.addStatement("this.$N = $N.<$T>adapter($N[$L])$L", moshiField, moshiInstance,
-            prop.type, typesArray, getTypeIndexInArray(genericTypeNames, prop.type),
+        constructor.addStatement("this.$N = $N.<$T>adapter($N[$L]$L)$L",
+            moshiField,
+            moshiInstance,
+            prop.type,
+            typesArray,
+            getTypeIndexInArray(genericTypeNames, prop.type),
+            possibleQualifierLookup,
             nullableOrNothing);
       } else {
         // Normal property
         CodeBlock possibleGenerics = prop.type instanceof ParameterizedTypeName
             ? CodeBlock.of("<$T>", prop.type)
             : CodeBlock.of("");
-        constructor.addStatement("this.$N = $N.$Ladapter($L)$L", moshiField, moshiInstance,
-            possibleGenerics, makeType(prop.type, typesArray, genericTypeNames), nullableOrNothing);
+        constructor.addStatement("this.$N = $N.$Ladapter($L$L)$L",
+            moshiField,
+            moshiInstance,
+            possibleGenerics,
+            makeType(prop.type, typesArray, genericTypeNames),
+            possibleQualifierLookup,
+            nullableOrNothing);
       }
     }
 
