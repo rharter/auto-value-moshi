@@ -37,6 +37,7 @@ targetCompatibility = versions.java
 dependencies {
   annotationProcessor libraries.incapProcessor
   annotationProcessor libraries.autoService
+  annotationProcessor libraries.autoValue
   compileOnly libraries.incap
   compileOnly libraries.autoService
 
