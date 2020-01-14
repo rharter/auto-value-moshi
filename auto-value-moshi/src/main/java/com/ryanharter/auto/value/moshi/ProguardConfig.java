@@ -83,46 +83,48 @@ abstract class ProguardConfig {
           .append("\n");
     }
 
-    out.append("-if class ")
-        .append(targetName)
-        .append("\n");
-    out.append("-keep class ")
-        .append(adapterCanonicalName)
-        .append(" {\n");
+    if (isExternal() || !qualifierProperties().isEmpty()) {
+      out.append("-if class ")
+          .append(targetName)
+          .append("\n");
+      out.append("-keep class ")
+          .append(adapterCanonicalName)
+          .append(" {\n");
 
-    if (isExternal()) {
-      // Keep the constructor for Moshi's reflective lookup
-      String constructorArgs = String.join(",", adapterConstructorParams());
-      out.append("    public <init>(")
-          .append(constructorArgs)
-          .append(");\n");
-    }
-    // Keep any qualifier properties
-    for (QualifierAdapterProperty qualifierProperty : qualifierProperties()) {
-      out.append("    private com.squareup.moshi.JsonAdapter ")
-          .append(qualifierProperty.name())
-          .append(";\n");
-    }
-    out.append("}\n");
+      if (isExternal()) {
+        // Keep the constructor for Moshi's reflective lookup
+        String constructorArgs = String.join(",", adapterConstructorParams());
+        out.append("    public <init>(")
+            .append(constructorArgs)
+            .append(");\n");
+      }
+      // Keep any qualifier properties
+      for (QualifierAdapterProperty qualifierProperty : qualifierProperties()) {
+        out.append("    private com.squareup.moshi.JsonAdapter ")
+            .append(qualifierProperty.name())
+            .append(";\n");
+      }
+      out.append("}\n");
 
-    qualifierProperties().stream()
-        .flatMap(prop -> prop.qualifiers().stream())
-        .map(ClassName::canonicalName)
-        .sorted()
-        .forEach(qualifier -> {
-          try {
-            out.append("-if class ")
-                .append(targetName)
-                .append("\n")
-                .append("-keep @interface ")
-                .append(qualifier)
-                .append("\n");
-          } catch (IOException e) {
-            // Annoyingly in Java lambdas, this block does not inherit the throws signature of the
-            // method this is run in.
-            throw new RuntimeException(e);
-          }
-        });
+      qualifierProperties().stream()
+          .flatMap(prop -> prop.qualifiers().stream())
+          .map(ClassName::canonicalName)
+          .sorted()
+          .forEach(qualifier -> {
+            try {
+              out.append("-if class ")
+                  .append(targetName)
+                  .append("\n")
+                  .append("-keep @interface ")
+                  .append(qualifier)
+                  .append("\n");
+            } catch (IOException e) {
+              // Annoyingly in Java lambdas, this block does not inherit the throws signature of the
+              // method this is run in.
+              throw new RuntimeException(e);
+            }
+          });
+    }
   }
 
   /**
