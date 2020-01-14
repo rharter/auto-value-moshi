@@ -272,7 +272,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     ProguardConfig proguardConfig = ProguardConfig.create(
         generateExternalAdapter,
         proguardTarget,
-        adapterFqcn.canonicalName(),
+        adapterFqcn,
         adapterConstructorParams,
         qualifierProperties
     );

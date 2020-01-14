@@ -31,7 +31,7 @@ import static javax.tools.StandardLocation.CLASS_OUTPUT;
 abstract class ProguardConfig {
   abstract boolean isExternal();
   abstract ClassName targetClass();
-  abstract String adapterName();
+  abstract ClassName adapterName();
   abstract List<String> adapterConstructorParams();
   abstract Set<QualifierAdapterProperty> qualifierProperties();
   abstract String outputFile();
@@ -39,7 +39,7 @@ abstract class ProguardConfig {
   static ProguardConfig create(
       boolean isExternal,
       ClassName targetClass,
-      String adapterName,
+      ClassName adapterName,
       List<String> adapterConstructorParams,
       Set<QualifierAdapterProperty> qualifierProperties) {
     String outputFile = "META-INF/proguard/avm-" + targetClass.canonicalName() + ".pro";
@@ -70,8 +70,7 @@ abstract class ProguardConfig {
     // }
     //
     String targetName = targetClass().canonicalName();
-    String adapterCanonicalName
-        = ClassName.get(targetClass().packageName(), adapterName()).canonicalName();
+    String adapterCanonicalName = adapterName().canonicalName();
 
     if (isExternal()) {
       // Keep the class name for Moshi's reflective lookup based on it
