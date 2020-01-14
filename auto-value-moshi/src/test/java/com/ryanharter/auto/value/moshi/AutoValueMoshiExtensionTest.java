@@ -4,11 +4,19 @@ import com.google.auto.value.processor.AutoValueProcessor;
 import com.google.common.collect.ImmutableSet;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Reader;
+import java.io.StringReader;
+import java.io.Writer;
+import java.net.URI;
+import java.nio.charset.Charset;
+import java.util.Arrays;
+import javax.tools.JavaFileObject;
+import javax.tools.SimpleJavaFileObject;
 import org.junit.Before;
 import org.junit.Test;
-
-import javax.tools.JavaFileObject;
-import java.util.Arrays;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.truth.Truth.assertAbout;
@@ -17,6 +25,7 @@ import static com.google.testing.compile.CompilationSubject.compilations;
 import static com.google.testing.compile.Compiler.javac;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
+import static javax.tools.JavaFileObject.Kind.OTHER;
 
 public final class AutoValueMoshiExtensionTest {
   private JavaFileObject nullable;
@@ -208,6 +217,195 @@ public final class AutoValueMoshiExtensionTest {
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
+  }
+
+  @Test public void simpleExternal() {
+    // Note that the jsonAdapter() method can be package-private
+    JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
+        + "package test;\n"
+        + "import com.squareup.moshi.Json;\n"
+        + "import com.ryanharter.auto.value.moshi.Nullable;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.JsonClass;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import io.sweers.autotransient.AutoTransient;\n"
+        + "import java.util.Map;\n"
+        + "import java.util.Set;\n"
+        + "@JsonClass(generateAdapter = true, generator = \"avm\")\n"
+        + "@AutoValue\n"
+        + "abstract class Test {\n"
+        // Reference type
+        + "public abstract String a();\n"
+        // Array type
+        + "public abstract int[] b();\n"
+        // Primitive type
+        + "public abstract int c();\n"
+        // @Json
+        + "@Json(name=\"_D\") public abstract String d();\n"
+        // Parametrized type, multiple parameters
+        + "public abstract Map<String, Number> e();\n"
+        // Parametrized type, single parameter
+        + "public abstract Set<? extends String> f();\n"
+        // Nested parameterized type
+        + "public abstract Map<String, Set<? super String>> g();\n"
+        // Nullable type
+        + "@Nullable abstract String i();\n"
+        // Transient property
+        + "@AutoTransient @Nullable abstract String j();\n"
+        + "}\n"
+    );
+
+    JavaFileObject expected = JavaFileObjects.forSourceString("test/TestJsonAdapter", "\n"
+        + "package test;\n"
+        + "\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.JsonReader;\n"
+        + "import com.squareup.moshi.JsonWriter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import com.squareup.moshi.Types;\n"
+        + "import java.io.IOException;\n"
+        + "import java.util.Map;\n"
+        + "import java.util.Set;\n"
+        + "import javax.annotation.Generated;\n"
+        + "\n"
+        + "@Generated(\"com.ryanharter.auto.value.moshi.AutoValueMoshiExtension\")\n"
+        + "public final class TestJsonAdapter extends JsonAdapter<Test> {\n"
+        + "  private static final String[] NAMES = new String[] {\"a\",\"b\",\"c\",\"_D\",\"e\","
+        + "\"f\",\"g\",\"i\"};\n"
+        + "\n"
+        + "  private static final JsonReader.Options OPTIONS = JsonReader.Options.of(NAMES);\n"
+        + "\n"
+        + "  private final JsonAdapter<String> aAdapter;\n"
+        + "\n"
+        + "  private final JsonAdapter<int[]> bAdapter;\n"
+        + "\n"
+        + "  private final JsonAdapter<Integer> cAdapter;\n"
+        + "\n"
+        + "  private final JsonAdapter<String> dAdapter;\n"
+        + "\n"
+        + "  private final JsonAdapter<Map<String, Number>> eAdapter;\n"
+        + "\n"
+        + "  private final JsonAdapter<Set<? extends String>> fAdapter;\n"
+        + "\n"
+        + "  private final JsonAdapter<Map<String, Set<? super String>>> gAdapter;\n"
+        + "\n"
+        + "  private final JsonAdapter<String> iAdapter;\n"
+        + "\n"
+        + "  public TestJsonAdapter(Moshi moshi) {\n"
+        + "    this.aAdapter = moshi.adapter(String.class).nonNull();\n"
+        + "    this.bAdapter = moshi.adapter(int[].class).nonNull();\n"
+        + "    this.cAdapter = moshi.adapter(int.class).nonNull();\n"
+        + "    this.dAdapter = moshi.adapter(String.class).nonNull();\n"
+        + "    this.eAdapter = moshi.<Map<String, Number>>adapter(Types.newParameterizedType(Map"
+        + ".class, String.class, Number.class)).nonNull();\n"
+        + "    this.fAdapter = moshi.<Set<? extends String>>adapter(Types.newParameterizedType"
+        + "(Set.class, Types.subtypeOf(String.class))).nonNull();\n"
+        + "    this.gAdapter = moshi.<Map<String, Set<? super String>>>adapter(Types"
+        + ".newParameterizedType(Map.class, String.class, Types.newParameterizedType(Set.class, "
+        + "Types.supertypeOf(String.class)))).nonNull();\n"
+        + "    this.iAdapter = moshi.adapter(String.class).nullSafe();\n"
+        + "  }\n"
+        + "\n"
+        + "  @Override\n"
+        + "  public Test fromJson(JsonReader reader) throws IOException {\n"
+        + "    reader.beginObject();\n"
+        + "    String a = null;\n"
+        + "    int[] b = null;\n"
+        + "    int c = 0;\n"
+        + "    String d = null;\n"
+        + "    Map<String, Number> e = null;\n"
+        + "    Set<? extends String> f = null;\n"
+        + "    Map<String, Set<? super String>> g = null;\n"
+        + "    String i = null;\n"
+        + "    while (reader.hasNext()) {\n"
+        + "      switch (reader.selectName(OPTIONS)) {\n"
+        + "        case 0: {\n"
+        + "          a = this.aAdapter.fromJson(reader);\n"
+        + "          break;\n"
+        + "        }\n"
+        + "        case 1: {\n"
+        + "          b = this.bAdapter.fromJson(reader);\n"
+        + "          break;\n"
+        + "        }\n"
+        + "        case 2: {\n"
+        + "          c = this.cAdapter.fromJson(reader);\n"
+        + "          break;\n"
+        + "        }\n"
+        + "        case 3: {\n"
+        + "          d = this.dAdapter.fromJson(reader);\n"
+        + "          break;\n"
+        + "        }\n"
+        + "        case 4: {\n"
+        + "          e = this.eAdapter.fromJson(reader);\n"
+        + "          break;\n"
+        + "        }\n"
+        + "        case 5: {\n"
+        + "          f = this.fAdapter.fromJson(reader);\n"
+        + "          break;\n"
+        + "        }\n"
+        + "        case 6: {\n"
+        + "          g = this.gAdapter.fromJson(reader);\n"
+        + "          break;\n"
+        + "        }\n"
+        + "        case 7: {\n"
+        + "          i = this.iAdapter.fromJson(reader);\n"
+        + "          break;\n"
+        + "        }\n"
+        + "        case -1: {\n"
+        + "          // Unknown name, skip it\n"
+        + "          reader.skipName();\n"
+        + "          reader.skipValue();\n"
+        + "        }\n"
+        + "      }\n"
+        + "    }\n"
+        + "    reader.endObject();\n"
+        + "    return new AutoValue_Test(a, b, c, d, e, f, g, i, null);\n"
+        + "  }\n"
+        + "\n"
+        + "  @Override\n"
+        + "  public void toJson(JsonWriter writer, Test value) throws IOException {\n"
+        + "    writer.beginObject();\n"
+        + "    writer.name(\"a\");\n"
+        + "    this.aAdapter.toJson(writer, value.a());\n"
+        + "    writer.name(\"b\");\n"
+        + "    this.bAdapter.toJson(writer, value.b());\n"
+        + "    writer.name(\"c\");\n"
+        + "    this.cAdapter.toJson(writer, value.c());\n"
+        + "    writer.name(\"_D\");\n"
+        + "    this.dAdapter.toJson(writer, value.d());\n"
+        + "    writer.name(\"e\");\n"
+        + "    this.eAdapter.toJson(writer, value.e());\n"
+        + "    writer.name(\"f\");\n"
+        + "    this.fAdapter.toJson(writer, value.f());\n"
+        + "    writer.name(\"g\");\n"
+        + "    this.gAdapter.toJson(writer, value.g());\n"
+        + "    String i = value.i();\n"
+        + "    if (i != null) {\n"
+        + "      writer.name(\"i\");\n"
+        + "      this.iAdapter.toJson(writer, i);\n"
+        + "    }\n"
+        + "    writer.endObject();\n"
+        + "  }\n"
+        + "}"
+    );
+
+    JavaFileObject expectedProguard = proguardResource(
+        "META-INF/proguard/avg-test.Test.pro",
+        "-if class test.Test\n"
+            + "-keepnames class test.Test\n"
+            + "-if class test.Test\n"
+            + "-keep class test.TestJsonAdapter {\n"
+            + "    public <init>(com.squareup.moshi.Moshi);\n"
+            + "}\n");
+
+    assertAbout(javaSources())
+        .that(Arrays.asList(nullable, source))
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected)
+        .and()
+        .generatesFiles(expectedProguard);
   }
 
   @Test public void privateMethod() {
@@ -814,12 +1012,23 @@ public final class AutoValueMoshiExtensionTest {
         + "  }\n"
         + "}");
 
+    JavaFileObject expectedProguard = proguardResource(
+        "META-INF/proguard/avg-test.Foo.pro",
+            "-if class test.Foo\n"
+                + "-keep class test.$AutoValue_Foo.MoshiJsonAdapter {\n"
+                + "    private com.squareup.moshi.JsonAdapter bAdapter;\n"
+                + "}\n"
+                + "-if class test.Foo\n"
+                + "-keep @interface test.FooPrefix\n");
+
     assertAbout(javaSources())
         .that(Arrays.asList(annotation, adapter, source))
         .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
         .and()
-        .generatesSources(expected);
+        .generatesSources(expected)
+        .and()
+        .generatesFiles(expectedProguard);
   }
 
   @Test public void usesJsonQualifierAnnotationsWithBaseInterface() {
@@ -934,12 +1143,23 @@ public final class AutoValueMoshiExtensionTest {
         + "  }\n"
         + "}");
 
+    JavaFileObject expectedProguard = proguardResource(
+        "META-INF/proguard/avg-test.Foo.pro",
+        "-if class test.Foo\n"
+            + "-keep class test.$AutoValue_Foo.MoshiJsonAdapter {\n"
+            + "    private com.squareup.moshi.JsonAdapter aAdapter;\n"
+            + "}\n"
+            + "-if class test.Foo\n"
+            + "-keep @interface test.FooPrefix\n");
+
     assertAbout(javaSources())
             .that(Arrays.asList(annotation, adapter, source, sourceInterface))
             .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
             .compilesWithoutError()
             .and()
-            .generatesSources(expected);
+            .generatesSources(expected)
+            .and()
+            .generatesFiles(expectedProguard);
   }
 
   @Test public void usesJsonQualifierAnnotationsWithBaseAbstractClass() {
@@ -1054,12 +1274,23 @@ public final class AutoValueMoshiExtensionTest {
         + "  }\n"
         + "}");
 
+    JavaFileObject expectedProguard = proguardResource(
+        "META-INF/proguard/avg-test.Foo.pro",
+        "-if class test.Foo\n"
+            + "-keep class test.$AutoValue_Foo.MoshiJsonAdapter {\n"
+            + "    private com.squareup.moshi.JsonAdapter aAdapter;\n"
+            + "}\n"
+            + "-if class test.Foo\n"
+            + "-keep @interface test.FooPrefix\n");
+
     assertAbout(javaSources())
             .that(Arrays.asList(annotation, adapter, source, sourceInterface))
             .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
             .compilesWithoutError()
             .and()
-            .generatesSources(expected);
+            .generatesSources(expected)
+            .and()
+            .generatesFiles(expectedProguard);
   }
 
   @Test public void usesDefaults() {
@@ -1963,11 +2194,23 @@ public final class AutoValueMoshiExtensionTest {
         + "}\n"
     );
 
+    JavaFileObject expectedProguard = proguardResource(
+        "META-INF/proguard/avg-test.Foo.pro",
+        "-if class test.Foo\n"
+            + "-keep class test.$AutoValue_Foo.MoshiJsonAdapter {\n"
+            + "    private com.squareup.moshi.JsonAdapter genericItemAdapter;\n"
+            + "}\n"
+            + "-if class test.Foo\n"
+            + "-keep @interface test.FooPrefix\n");
+
     assertAbout(javaSources())
         .that(Arrays.asList(annotation, adapter, source))
         .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
         .compilesWithoutError()
-        .and().generatesSources(expected);
+        .and()
+        .generatesSources(expected)
+        .and()
+        .generatesFiles(expectedProguard);
   }
 
   @Test public void transientRequiredPropertyShouldFail() {
@@ -1990,5 +2233,51 @@ public final class AutoValueMoshiExtensionTest {
         .processedWith(new AutoValueProcessor())
         .failsToCompile()
         .withErrorContaining("Required property cannot be transient!");
+  }
+
+  private static JavaFileObject proguardResource(String path, String source) {
+    return new ResourceFile(path, source);
+  }
+
+  private static class ResourceFile extends SimpleJavaFileObject {
+
+    final String source;
+    final long lastModified;
+
+    ResourceFile(String path, String source) {
+      super(URI.create(path), OTHER);
+      this.source = source;
+      this.lastModified = System.currentTimeMillis();
+    }
+
+    @Override
+    public CharSequence getCharContent(boolean ignoreEncodingErrors) {
+      return source;
+    }
+
+    @Override
+    public OutputStream openOutputStream() {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    public InputStream openInputStream() {
+      return new ByteArrayInputStream(source.getBytes(Charset.defaultCharset()));
+    }
+
+    @Override
+    public Writer openWriter() {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    public Reader openReader(boolean ignoreEncodingErrors) {
+      return new StringReader(source);
+    }
+
+    @Override
+    public long getLastModified() {
+      return lastModified;
+    }
   }
 }
