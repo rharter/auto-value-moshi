@@ -2057,6 +2057,107 @@ public final class AutoValueMoshiExtensionTest {
         .and().generatesSources(expected);
   }
 
+  @Test public void multipleGenericsNotInOrderExternal() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.JsonClass;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import java.lang.reflect.Type;\n"
+        + "import java.util.List;\n"
+        + "@JsonClass(generateAdapter = true, generator = \"avm\")\n"
+        + "@AutoValue\n"
+        + "public abstract class Foo<V, T> {\n"
+        + "  public abstract List<T> items();\n"
+        + "  public abstract List<V> headers();\n"
+        + "}"
+    );
+
+    JavaFileObject expected = JavaFileObjects.forSourceString("test/FooJsonAdapter", "package test;\n"
+        + "\n"
+        + "import com.squareup.moshi.JsonAdapter;\n"
+        + "import com.squareup.moshi.JsonReader;\n"
+        + "import com.squareup.moshi.JsonWriter;\n"
+        + "import com.squareup.moshi.Moshi;\n"
+        + "import com.squareup.moshi.Types;\n"
+        + "import java.io.IOException;\n"
+        + "import java.lang.reflect.Type;\n"
+        + "import java.util.List;\n"
+        + "import javax.annotation.Generated;\n"
+        + "\n"
+        + "@Generated(\"com.ryanharter.auto.value.moshi.AutoValueMoshiExtension\")\n"
+        + "public final class FooJsonAdapter<V, T> extends JsonAdapter<Foo<V, T>> {\n"
+        + "  private static final String[] NAMES = new String[] {\"items\",\"headers\"};\n"
+        + "\n"
+        + "  private static final JsonReader.Options OPTIONS = JsonReader.Options.of(NAMES);\n"
+        + "\n"
+        + "  private final JsonAdapter<List<T>> itemsAdapter;\n"
+        + "\n"
+        + "  private final JsonAdapter<List<V>> headersAdapter;\n"
+        + "\n"
+        + "  public FooJsonAdapter(Moshi moshi, Type[] types) {\n"
+        + "    this.itemsAdapter = moshi.<List<T>>adapter(Types.newParameterizedType(List.class, types[1])).nonNull();\n"
+        + "    this.headersAdapter = moshi.<List<V>>adapter(Types.newParameterizedType(List.class, types[0])).nonNull();\n"
+        + "  }\n"
+        + "\n"
+        + "  @Override\n"
+        + "  public Foo<V, T> fromJson(JsonReader reader) throws IOException {\n"
+        + "    reader.beginObject();\n"
+        + "    List<T> items = null;\n"
+        + "    List<V> headers = null;\n"
+        + "    while (reader.hasNext()) {\n"
+        + "      switch (reader.selectName(OPTIONS)) {\n"
+        + "        case 0: {\n"
+        + "          items = this.itemsAdapter.fromJson(reader);\n"
+        + "          break;\n"
+        + "        }\n"
+        + "        case 1: {\n"
+        + "          headers = this.headersAdapter.fromJson(reader);\n"
+        + "          break;\n"
+        + "        }\n"
+        + "        case -1: {\n"
+        + "          // Unknown name, skip it\n"
+        + "          reader.skipName();\n"
+        + "          reader.skipValue();\n"
+        + "        }\n"
+        + "      }\n"
+        + "    }\n"
+        + "    reader.endObject();\n"
+        + "    return new AutoValue_Foo(items, headers);\n"
+        + "  }\n"
+        + "\n"
+        + "  @Override\n"
+        + "  public void toJson(JsonWriter writer, Foo<V, T> value) throws IOException {\n"
+        + "    writer.beginObject();\n"
+        + "    writer.name(\"items\");\n"
+        + "    this.itemsAdapter.toJson(writer, value.items());\n"
+        + "    writer.name(\"headers\");\n"
+        + "    this.headersAdapter.toJson(writer, value.headers());\n"
+        + "    writer.endObject();\n"
+        + "  }\n"
+        + "}\n"
+    );
+
+    JavaFileObject expectedProguard = proguardResource(
+        "META-INF/proguard/avg-test.Foo.pro",
+        "-if class test.Foo\n"
+            + "-keepnames class test.Foo\n"
+            + "-if class test.Foo\n"
+            + "-keep class test.FooJsonAdapter {\n"
+            + "    public <init>(com.squareup.moshi.Moshi,java.lang.reflect.Type[]);\n"
+            + "}\n");
+
+    assertAbout(javaSource())
+        .that(source1)
+        .processedWith(new AutoValueProcessor(newArrayList(new AutoValueMoshiExtension())))
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected)
+        .and()
+        .generatesFiles(expectedProguard);
+  }
+
   @Test public void genericsAndQualifiers() {
     JavaFileObject annotation = JavaFileObjects.forSourceString("test.FooPrefix", ""
         + "package test;\n"
