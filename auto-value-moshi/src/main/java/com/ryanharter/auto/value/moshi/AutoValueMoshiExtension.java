@@ -65,6 +65,7 @@ import static javax.lang.model.element.Modifier.STATIC;
 
 @AutoService(AutoValueExtension.class)
 public final class AutoValueMoshiExtension extends AutoValueExtension {
+  static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-moshi";
   private static final ClassName ADAPTER_CLASS_NAME = ClassName.get(JsonAdapter.class);
   private static final String MOSHI_GENERATOR_KEY = "avm";
 
@@ -241,7 +242,8 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     Optional<AnnotationSpec> generatedAnnotation = GeneratedAnnotationSpecs.generatedAnnotationSpec(
         context.processingEnvironment().getElementUtils(),
         context.processingEnvironment().getSourceVersion(),
-        AutoValueMoshiExtension.class
+        AutoValueMoshiExtension.class,
+        GENERATED_COMMENTS
     );
 
     ClassName proguardTarget = ClassName.get(context.autoValueClass());
