@@ -8,6 +8,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+import com.ryanharter.auto.value.moshi.ProguardConfig.QualifierAdapterProperty;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
@@ -44,6 +46,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
@@ -207,6 +210,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     ClassName autoValueClassName = ClassName.get(context.autoValueClass());
     TypeVariableName[] genericTypeNames = null;
 
+    ClassName superclassToExtend = ClassName.get(context.packageName(), classToExtend);
     TypeName superclass;
 
     if (shouldCreateGenerics) {
@@ -214,7 +218,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       for (int i = 0; i < typeParams.size(); i++) {
         genericTypeNames[i] = TypeVariableName.get(typeParams.get(i));
       }
-      superclass = ParameterizedTypeName.get(ClassName.get(context.packageName(), classToExtend),
+      superclass = ParameterizedTypeName.get(superclassToExtend,
               genericTypeNames);
     } else {
       superclass = TypeVariableName.get(classToExtend);
@@ -240,6 +244,53 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
         AutoValueMoshiExtension.class
     );
 
+    ClassName proguardTarget = ClassName.get(context.autoValueClass());
+    ClassName adapterFqcn = generateExternalAdapter
+        ? ClassName.get(context.packageName(), adapterClassName)
+        : superclassToExtend.nestedClass(adapterClassName);
+    List<String> adapterConstructorParams = Lists.newArrayList();
+    typeAdapterBuilder.methodSpecs.stream().filter(MethodSpec::isConstructor).findFirst()
+        .ifPresent(c -> {
+          for (ParameterSpec p : c.parameters) {
+            adapterConstructorParams.add(proguardNameOf(p.type));
+          }
+        });
+
+    Set<QualifierAdapterProperty> qualifierProperties = Sets.newLinkedHashSet();
+    for (FieldSpec field : typeAdapterBuilder.fieldSpecs) {
+      if (!field.annotations.isEmpty() && ADAPTER_CLASS_NAME.equals(rawType(field.type))) {
+        qualifierProperties.add(
+            QualifierAdapterProperty.create(
+                field.name,
+                field.annotations.stream()
+                    .map(a -> (ClassName) a.type)
+                    .collect(Collectors.toSet()))
+        );
+      }
+    }
+
+    ProguardConfig proguardConfig = ProguardConfig.create(
+        generateExternalAdapter,
+        proguardTarget,
+        adapterFqcn,
+        adapterConstructorParams,
+        qualifierProperties
+    );
+
+    Filer filer = context.processingEnvironment().getFiler();
+    Runnable writeProguardFile = () -> {
+      try {
+        proguardConfig.writeTo(filer, context.autoValueClass());
+      } catch (IOException e) {
+        context.processingEnvironment().getMessager()
+            .printMessage(Diagnostic.Kind.ERROR,
+                String.format(
+                    "Failed to write proguard file for element \"%s\" with reason \"%s\"",
+                    context.autoValueClass(),
+                    e.getMessage()));
+      }
+    };
+
     if (generateExternalAdapter(context.autoValueClass())) {
       typeAdapterBuilder.addOriginatingElement(context.autoValueClass());
       generatedAnnotation.ifPresent(typeAdapterBuilder::addAnnotation);
@@ -247,7 +298,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
           .skipJavaLangImports(true)
           .build();
       try {
-        javaFile.writeTo(context.processingEnvironment().getFiler());
+        javaFile.writeTo(filer);
       } catch (IOException e) {
         context.processingEnvironment().getMessager()
             .printMessage(Diagnostic.Kind.ERROR,
@@ -256,6 +307,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
                     context.autoValueClass(),
                     e.getMessage()));
       }
+      writeProguardFile.run();
       return null;
     } else {
       TypeSpec typeAdapter = typeAdapterBuilder.addModifiers(STATIC).build();
@@ -276,6 +328,8 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       } else {
         subclass.addModifiers(ABSTRACT);
       }
+
+      writeProguardFile.run();
 
       return JavaFile.builder(context.packageName(), subclass.build()).build().toString();
     }
@@ -745,5 +799,34 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       block.add("$T.class", type);
     }
     return block.build();
+  }
+
+  @Nullable
+  private static ClassName rawType(TypeName typeName) {
+    if (typeName instanceof ClassName) {
+      return (ClassName) typeName;
+    } else if (typeName instanceof ArrayTypeName) {
+      return rawType(((ArrayTypeName) typeName).componentType);
+    } else if (typeName instanceof ParameterizedTypeName) {
+      return ((ParameterizedTypeName) typeName).rawType;
+    } else if (typeName instanceof WildcardTypeName) {
+      return rawType(((WildcardTypeName) typeName).upperBounds.get(0));
+    } else {
+      return null;
+    }
+  }
+
+  private static String proguardNameOf(TypeName typeName) {
+    if (typeName instanceof ClassName) {
+      return ((ClassName) typeName).canonicalName();
+    } else if (typeName instanceof ArrayTypeName) {
+      return proguardNameOf(((ArrayTypeName) typeName).componentType) + "[]";
+    } else if (typeName instanceof ParameterizedTypeName) {
+      return ((ParameterizedTypeName) typeName).rawType.canonicalName();
+    } else if (typeName instanceof TypeVariableName) {
+      return "java.lang.Object";
+    } else {
+      throw new UnsupportedOperationException("Unrecognized TypeName type: " + typeName);
+    }
   }
 }
