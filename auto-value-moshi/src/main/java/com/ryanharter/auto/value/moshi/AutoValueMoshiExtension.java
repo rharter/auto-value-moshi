@@ -493,7 +493,18 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
         .addMethod(constructor.build())
         .addMethod(createReadMethod(className, autoValueClassName, autoValueTypeName, properties,
                 adapters, names, builderContext, processingEnvironment))
-        .addMethod(createWriteMethod(autoValueTypeName, adapters));
+        .addMethod(createWriteMethod(autoValueTypeName, adapters))
+        .addMethod(MethodSpec.methodBuilder("toString")
+            .addAnnotation(Override.class)
+            .addModifiers(PUBLIC)
+            .returns(String.class)
+            .addStatement("return new $T().append($S).append($S).append($S).toString()",
+                StringBuilder.class,
+                "JsonAdapter(",
+                Joiner.on(".").join(autoValueClassName.simpleNames()),
+                ")"
+            )
+            .build());
 
     ArrayTypeName stringArray = ArrayTypeName.of(String.class);
     ClassName optionsCN = ClassName.get(JsonReader.Options.class);
