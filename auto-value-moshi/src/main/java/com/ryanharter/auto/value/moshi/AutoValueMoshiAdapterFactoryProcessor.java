@@ -215,7 +215,8 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
     GeneratedAnnotationSpecs.generatedAnnotationSpec(
         processingEnv.getElementUtils(),
         processingEnv.getSourceVersion(),
-        AutoValueMoshiAdapterFactoryProcessor.class
+        AutoValueMoshiAdapterFactoryProcessor.class,
+        AutoValueMoshiExtension.GENERATED_COMMENTS
     ).ifPresent(factory::addAnnotation);
 
     ParameterSpec type = TYPE_SPEC;
