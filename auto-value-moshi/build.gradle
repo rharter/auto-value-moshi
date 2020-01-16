@@ -41,8 +41,8 @@ dependencies {
   compileOnly libraries.incap
   compileOnly libraries.autoService
 
-  implementation libraries.autoValue
-  implementation libraries.autoValueAnnotations
+  api libraries.autoValue
+  api libraries.autoValueAnnotations
   api project(':auto-value-moshi-runtime')
   compileShaded libraries.guava
   compileShaded libraries.autoCommon
