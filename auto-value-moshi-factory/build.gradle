@@ -43,7 +43,7 @@ dependencies {
   compileOnly libraries.autoService
 
   api libraries.autoValueAnnotations
-  api project(':auto-value-moshi')
+  api project(':auto-value-moshi-extension')
   compileShaded libraries.guava
   compileShaded libraries.autoCommon
   implementation libraries.javaPoet
