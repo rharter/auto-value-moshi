@@ -82,7 +82,8 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
         + "  }\n"
         + "}");
     JavaFileObject expected =
-        JavaFileObjects.forSourceString("test.AutoValueMoshi_MyAdapterFactory", "package test;\n"
+        JavaFileObjects.forSourceString("test.AutoValueMoshi_MyAdapterFactory", ""
+            + "package test;\n"
             + "\n"
             + "import com.squareup.moshi.JsonAdapter;\n"
             + "import com.squareup.moshi.Moshi;\n"
