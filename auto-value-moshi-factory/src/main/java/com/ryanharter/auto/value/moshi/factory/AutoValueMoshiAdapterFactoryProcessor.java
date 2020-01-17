@@ -1,12 +1,13 @@
-package com.ryanharter.auto.value.moshi;
+package com.ryanharter.auto.value.moshi.factory;
 
 import com.google.auto.common.GeneratedAnnotationSpecs;
 import com.google.auto.common.Visibility;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
-import com.google.auto.value.extension.AutoValueExtension;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
+import com.ryanharter.auto.value.moshi.AutoValueMoshiExtension;
+import com.ryanharter.auto.value.moshi.MoshiAdapterFactory;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.JavaFile;
@@ -23,7 +24,6 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -73,7 +73,6 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
   private static final ParameterizedTypeName FACTORY_RETURN_TYPE_NAME =
       ParameterizedTypeName.get(ADAPTER_CLASS_NAME, WildcardTypeName.subtypeOf(TypeName.OBJECT));
 
-  private final AutoValueMoshiExtension extension = new AutoValueMoshiExtension();
   private Types typeUtils;
   private Elements elementUtils;
 
@@ -102,7 +101,7 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
     List<TypeElement> elements = roundEnv.getElementsAnnotatedWith(AutoValue.class)
         .stream()
         .map(e -> (TypeElement) e)
-        .filter(e ->  extension.applicable(new LimitedContext(processingEnv, e)))
+        .filter(e ->  AutoValueMoshiExtension.isApplicable(e, processingEnv.getMessager()))
         .sorted((o1, o2) -> {
           final String o1Name = classNameOf(o1);
           final String o2Name = classNameOf(o2);
@@ -152,6 +151,7 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
                 return false;
               case DEFAULT:
               case PROTECTED:
+                //noinspection UnstableApiUsage
                 if (!getPackage(e).equals(packageElement)) {
                   return false;
                 }
@@ -168,6 +168,7 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
                 return false;
               case DEFAULT:
               case PROTECTED:
+                //noinspection UnstableApiUsage
                 if (!getPackage(adapterMethod).equals(packageElement)) {
                   return false;
                 }
@@ -390,49 +391,11 @@ public final class AutoValueMoshiAdapterFactoryProcessor extends AbstractProcess
   }
 
   /**
-   * Returns the name of the package that the given type is in. If the type is in the default
-   * (unnamed) package then the name is the empty string.
-   */
-  private static String packageNameOf(TypeElement type) {
-    return packageElementOf(type).getQualifiedName().toString();
-  }
-
-  /**
    * Returns the package element that the given type is in. If the type is in the default
    * (unnamed) package then the name is the empty string.
    */
   private static PackageElement packageElementOf(TypeElement type) {
+    //noinspection UnstableApiUsage
     return getPackage(type);
-  }
-
-  private static class LimitedContext implements AutoValueExtension.Context {
-    private final ProcessingEnvironment processingEnvironment;
-    private final TypeElement autoValueClass;
-
-    LimitedContext(ProcessingEnvironment processingEnvironment, TypeElement autoValueClass) {
-      this.processingEnvironment = processingEnvironment;
-      this.autoValueClass = autoValueClass;
-    }
-
-    @Override public ProcessingEnvironment processingEnvironment() {
-      return processingEnvironment;
-    }
-
-    @Override public String packageName() {
-      String fqn = autoValueClass.getQualifiedName().toString();
-      return fqn.substring(0, fqn.lastIndexOf('.'));
-    }
-
-    @Override public TypeElement autoValueClass() {
-      return autoValueClass;
-    }
-
-    @Override public Map<String, ExecutableElement> properties() {
-      return null;
-    }
-
-    @Override public Set<ExecutableElement> abstractMethods() {
-      return null;
-    }
   }
 }

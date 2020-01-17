@@ -65,7 +65,7 @@ import static javax.lang.model.element.Modifier.STATIC;
 
 @AutoService(AutoValueExtension.class)
 public final class AutoValueMoshiExtension extends AutoValueExtension {
-  static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-moshi";
+  public static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-moshi";
   private static final ClassName ADAPTER_CLASS_NAME = ClassName.get(JsonAdapter.class);
   private static final String MOSHI_GENERATOR_KEY = "avm";
 
@@ -146,6 +146,10 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
 
   @Override public boolean applicable(Context context) {
     TypeElement type = context.autoValueClass();
+    return isApplicable(type, context.processingEnvironment().getMessager());
+  }
+
+  public static boolean isApplicable(TypeElement type, Messager messager) {
     if (generateExternalAdapter(type)) {
       return true;
     }
@@ -174,7 +178,6 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     }
 
     // emit a warning if the user added a method returning a JsonAdapter, but not of the right type
-    Messager messager = context.processingEnvironment().getMessager();
     if (returnedJsonAdapter instanceof ParameterizedTypeName) {
       ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnedJsonAdapter;
       if (paramReturnType.typeArguments.get(0) instanceof ParameterizedTypeName) {

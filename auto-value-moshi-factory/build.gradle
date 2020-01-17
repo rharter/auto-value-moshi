@@ -17,9 +17,9 @@ shadowJar {
   minimize()
   archiveClassifier.set('')
   configurations = [shadedConfig]
-  relocate 'com.google.auto.common', 'autovaluemoshi.shaded.com.google.auto.common'
-  relocate 'com.google.common', 'autovaluemoshi.shaded.com.google.common'
-  relocate 'com.google.thirdparty', 'autovaluemoshi.shaded.com.google.thirdparty'
+  relocate 'com.google.auto.common', 'autovaluemoshi.factory.shaded.com.google.auto.common'
+  relocate 'com.google.common', 'autovaluemoshi.factory.shaded.com.google.common'
+  relocate 'com.google.thirdparty', 'autovaluemoshi.factory.shaded.com.google.thirdparty'
   exclude 'afu/**'
   exclude 'org/**'
   exclude 'com/google/errorprone/annotations/**'
@@ -39,13 +39,11 @@ targetCompatibility = versions.java
 dependencies {
   annotationProcessor libraries.incapProcessor
   annotationProcessor libraries.autoService
-  annotationProcessor libraries.autoValue
   compileOnly libraries.incap
   compileOnly libraries.autoService
 
-  api libraries.autoValue
   api libraries.autoValueAnnotations
-  api project(':auto-value-moshi-runtime')
+  api project(':auto-value-moshi')
   compileShaded libraries.guava
   compileShaded libraries.autoCommon
   implementation libraries.javaPoet

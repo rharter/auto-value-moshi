@@ -1,4 +1,4 @@
-package com.ryanharter.auto.value.moshi;
+package com.ryanharter.auto.value.moshi.factory;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.testing.compile.JavaFileObjects;
@@ -82,7 +82,8 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
         + "  }\n"
         + "}");
     JavaFileObject expected =
-        JavaFileObjects.forSourceString("test.AutoValueMoshi_MyAdapterFactory", "package test;\n"
+        JavaFileObjects.forSourceString("test.AutoValueMoshi_MyAdapterFactory", ""
+            + "package test;\n"
             + "\n"
             + "import com.squareup.moshi.JsonAdapter;\n"
             + "import com.squareup.moshi.Moshi;\n"
@@ -95,7 +96,7 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
             + "import javax.annotation.Generated;\n"
             + "\n"
         + "@Generated(\n"
-        + "    value = \"com.ryanharter.auto.value.moshi.AutoValueMoshiAdapterFactoryProcessor\",\n"
+        + "    value = \"com.ryanharter.auto.value.moshi.factory.AutoValueMoshiAdapterFactoryProcessor\",\n"
         + "    comments = \"https://github.com/rharter/auto-value-moshi\"\n"
         + ")\n"
             + "public final class AutoValueMoshi_MyAdapterFactory extends MyAdapterFactory {\n"
@@ -169,7 +170,7 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
             + "import javax.annotation.Generated;\n"
             + "\n"
         + "@Generated(\n"
-        + "    value = \"com.ryanharter.auto.value.moshi.AutoValueMoshiAdapterFactoryProcessor\",\n"
+        + "    value = \"com.ryanharter.auto.value.moshi.factory.AutoValueMoshiAdapterFactoryProcessor\",\n"
         + "    comments = \"https://github.com/rharter/auto-value-moshi\"\n"
         + ")\n"
             + "final class AutoValueMoshi_MyAdapterFactory extends MyAdapterFactory {\n"
@@ -232,7 +233,7 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
             + "import javax.annotation.Generated;\n"
             + "\n"
         + "@Generated(\n"
-        + "    value = \"com.ryanharter.auto.value.moshi.AutoValueMoshiAdapterFactoryProcessor\",\n"
+        + "    value = \"com.ryanharter.auto.value.moshi.factory.AutoValueMoshiAdapterFactoryProcessor\",\n"
         + "    comments = \"https://github.com/rharter/auto-value-moshi\"\n"
         + ")\n"
             + "public final class AutoValueMoshi_MyAdapterFactory extends MyAdapterFactory {\n"
@@ -367,7 +368,7 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
             + "import javax.annotation.Generated;\n"
             + "\n"
         + "@Generated(\n"
-        + "    value = \"com.ryanharter.auto.value.moshi.AutoValueMoshiAdapterFactoryProcessor\",\n"
+        + "    value = \"com.ryanharter.auto.value.moshi.factory.AutoValueMoshiAdapterFactoryProcessor\",\n"
         + "    comments = \"https://github.com/rharter/auto-value-moshi\"\n"
         + ")\n"
             + "public final class AutoValueMoshi_MyAdapterFactory extends MyAdapterFactory {\n"
@@ -450,7 +451,7 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
             + "import javax.annotation.Generated;\n"
             + "\n"
         + "@Generated(\n"
-        + "    value = \"com.ryanharter.auto.value.moshi.AutoValueMoshiAdapterFactoryProcessor\",\n"
+        + "    value = \"com.ryanharter.auto.value.moshi.factory.AutoValueMoshiAdapterFactoryProcessor\",\n"
         + "    comments = \"https://github.com/rharter/auto-value-moshi\"\n"
         + ")\n"
             + "public final class AutoValueMoshi_MyAdapterFactory extends MyAdapterFactory {\n"
@@ -518,7 +519,7 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
             + "import test.Foo;\n"
             + "\n"
         + "@Generated(\n"
-        + "    value = \"com.ryanharter.auto.value.moshi.AutoValueMoshiAdapterFactoryProcessor\",\n"
+        + "    value = \"com.ryanharter.auto.value.moshi.factory.AutoValueMoshiAdapterFactoryProcessor\",\n"
         + "    comments = \"https://github.com/rharter/auto-value-moshi\"\n"
         + ")\n"
             + "public final class AutoValueMoshi_MyAdapterFactory extends MyAdapterFactory {\n"
@@ -600,7 +601,7 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
             + "import test.Foo;\n"
             + "\n"
         + "@Generated(\n"
-        + "    value = \"com.ryanharter.auto.value.moshi.AutoValueMoshiAdapterFactoryProcessor\",\n"
+        + "    value = \"com.ryanharter.auto.value.moshi.factory.AutoValueMoshiAdapterFactoryProcessor\",\n"
         + "    comments = \"https://github.com/rharter/auto-value-moshi\"\n"
         + ")\n"
             + "public final class AutoValueMoshi_MyAdapterFactory extends MyAdapterFactory {\n"
