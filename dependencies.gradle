@@ -36,7 +36,6 @@ ext {
         junit               : "junit:junit:$versions.junit",
         truth               : "com.google.truth:truth:$versions.truth",
         compileTesting      : "com.google.testing.compile:compile-testing:$versions.compileTesting",
-        toolsJar            : files(Jvm.current().getToolsJar()),
         assertJ             : "org.assertj:assertj-core:$versions.assertJ"
     ]
 }

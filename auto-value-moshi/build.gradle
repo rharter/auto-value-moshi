@@ -1,3 +1,5 @@
+import org.gradle.internal.jvm.Jvm
+
 plugins {
   id 'com.github.johnrengelman.shadow' version '5.1.0'
   id 'java-library'
@@ -52,7 +54,11 @@ dependencies {
   testImplementation libraries.junit
   testImplementation libraries.truth
   testImplementation libraries.compileTesting
-  testImplementation libraries.toolsJar
+  if (!Jvm.current().javaVersion.isJava9Compatible()) {
+    // Only necessary for JDK <9
+    // https://github.com/google/compile-testing/issues/28#issuecomment-69204681
+    testImplementation files(Jvm.current().getToolsJar())
+  }
 }
 
 apply from: rootProject.file('gradle/gradle-mvn-push.gradle')
