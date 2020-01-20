@@ -1,7 +1,7 @@
 package com.ryanharter.auto.value.moshi.example.wildgenerics;
 
 import com.ryanharter.auto.value.moshi.example.Address;
-import com.ryanharter.auto.value.moshi.example.SampleTypeAdapterFactory;
+import com.ryanharter.auto.value.moshi.example.SampleJsonAdapterFactory;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
 import com.squareup.moshi.Types;
@@ -21,7 +21,7 @@ public final class WildGenericsTest {
         + "\"city\":\"barCity\"}],\"topLevelNonGeneric\":\"topLevelNonGeneric\"}";
 
     Moshi moshi = new Moshi.Builder()
-        .add(SampleTypeAdapterFactory.create())
+        .add(SampleJsonAdapterFactory.create())
         .build();
     JsonAdapter<AddressGenericBase> adapter = moshi.adapter(AddressGenericBase.class);
     AddressGenericBase instance = adapter.fromJson(json);
@@ -47,7 +47,7 @@ public final class WildGenericsTest {
         + "\"city\":\"topCollectionCity\"}]}";
 
     Moshi moshi = new Moshi.Builder()
-        .add(SampleTypeAdapterFactory.create())
+        .add(SampleJsonAdapterFactory.create())
         .build();
     Type token = Types.newParameterizedType(DoubleGeneric.class, Address.class);
     JsonAdapter<DoubleGeneric<Address>> adapter = moshi.adapter(token);
