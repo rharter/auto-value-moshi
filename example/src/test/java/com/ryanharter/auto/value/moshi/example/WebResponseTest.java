@@ -12,7 +12,7 @@ import static junit.framework.TestCase.assertEquals;
 
 public class WebResponseTest {
     Moshi moshi = new Moshi.Builder()
-            .add(SampleTypeAdapterFactory.create())
+            .add(SampleJsonAdapterFactory.create())
             .build();
 
     @Test

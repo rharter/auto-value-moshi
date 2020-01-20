@@ -1627,7 +1627,7 @@ public final class AutoValueMoshiExtensionTest {
         .generatesSources(expected);
   }
 
-  @Test public void emitsWarningForWrongTypeAdapterTypeArgument() {
+  @Test public void emitsWarningForWrongJsonAdapterTypeArgument() {
     JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
         + "package test;\n"
         + "import com.google.auto.value.AutoValue;\n"
@@ -1655,7 +1655,7 @@ public final class AutoValueMoshiExtensionTest {
             + "test.Foo class. Skipping MoshiJsonAdapter generation.");
   }
 
-  @Test public void emitsWarningForNoTypeAdapterTypeArgument() {
+  @Test public void emitsWarningForNoJsonAdapterTypeArgument() {
     JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
         + "package test;\n"
         + "import com.google.auto.value.AutoValue;\n"
@@ -2456,8 +2456,8 @@ public final class AutoValueMoshiExtensionTest {
         + "import com.ryanharter.auto.value.moshi.Nullable;\n"
         + "@AutoValue public abstract class Test {\n"
         + "  @AutoTransient public abstract String transientProperty();\n"
-        + "  public static JsonAdapter<Test> typeAdapter(Moshi moshi) {\n"
-        + "    return new AutoValue_Test.MoshiJsonAdapter(gson);\n"
+        + "  public static JsonAdapter<Test> jsonAdapter(Moshi moshi) {\n"
+        + "    return new AutoValue_Test.MoshiJsonAdapter(moshi);\n"
         + "  }\n"
         + "}");
 

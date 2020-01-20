@@ -22,7 +22,7 @@ public final class AutoValueMoshiAdapterFactoryProcessorTest {
         + "  public abstract String getName();\n"
         + "  public abstract boolean isAwesome();\n"
         + "}");
-    // Source2's typeAdapter method accepts no parameter, which is valid for the processor factory
+    // Source2's jsonAdapter method accepts no parameter, which is valid for the processor factory
     JavaFileObject source2 = JavaFileObjects.forSourceString("test.Bar", ""
         + "package test;\n"
         + "import com.google.auto.value.AutoValue;\n"
