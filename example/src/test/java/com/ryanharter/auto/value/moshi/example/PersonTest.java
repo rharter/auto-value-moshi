@@ -22,7 +22,7 @@ public class PersonTest {
         final DateFormat df = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
 
         Moshi moshi = new Moshi.Builder()
-                .add(SampleTypeAdapterFactory.create())
+                .add(SampleJsonAdapterFactory.create())
                 .build();
         Person person = Person.builder()
                 .name("Piasy")
@@ -49,7 +49,7 @@ public class PersonTest {
         expectedException.expectMessage("age cannot be negative");
 
         Moshi moshi = new Moshi.Builder()
-                .add(SampleTypeAdapterFactory.create())
+                .add(SampleJsonAdapterFactory.create())
                 .build();
 
         //language=json
@@ -58,9 +58,9 @@ public class PersonTest {
     }
 
     @Test
-    public void testGsonWithDefaults() throws IOException {
+    public void testMoshiWithDefaults() throws IOException {
         Moshi moshi = new Moshi.Builder()
-                .add(SampleTypeAdapterFactory.create())
+                .add(SampleJsonAdapterFactory.create())
                 .build();
 
         // "name" and "gender" are unspecified. Should default to "Jane Doe" and 23

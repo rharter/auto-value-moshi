@@ -4,8 +4,8 @@ import com.ryanharter.auto.value.moshi.MoshiAdapterFactory;
 import com.squareup.moshi.JsonAdapter;
 
 @MoshiAdapterFactory
-public abstract class SampleTypeAdapterFactory implements JsonAdapter.Factory {
+public abstract class SampleJsonAdapterFactory implements JsonAdapter.Factory {
     public static JsonAdapter.Factory create() {
-        return new AutoValueMoshi_SampleTypeAdapterFactory();
+        return new AutoValueMoshi_SampleJsonAdapterFactory();
     }
 }
