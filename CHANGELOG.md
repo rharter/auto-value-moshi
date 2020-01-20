@@ -1,5 +1,21 @@
 # Change Log
 
+## Version 1.0.0 (2020-01-19)
+
+Note that this 1.0 release updates the gradle dependency name to `auto-value-moshi-extension`, and the optional `MoshiAdapterFactory` lives in a different dependency.
+
+* Add support for default values through builders (#139)
+* Fix factory method with generics. (#142)
+* Allow no-arg factory methods for non-generic types (#148)
+* Support generating external adapters (#146)
+* Add support for transient types via autotransient (#151)
+* Generate nonNull() onto non-nullable properties (#154)
+* Generate proguard rules (#155)
+* Optimize toString and inline NAMES (#158)
+* Move factory to separate artifact (#159)
+* Rename main extension to auto-value-moshi-extension (#160)
+* Resolve materialized types in subclasses of generic types (#162)
+
 ## Version 0.4.7 (2019-08-05)
 
 * Fixes issue with missing classes in shaded jar. (#134)
