@@ -6,7 +6,7 @@ targetCompatibility = versions.java
 
 dependencies {
   annotationProcessor libraries.incap // https://github.com/google/auto/issues/615#issuecomment-438045951
-  annotationProcessor project(':auto-value-moshi')
+  annotationProcessor project(':auto-value-moshi-extension')
   annotationProcessor project(':auto-value-moshi-factory')
   compileOnly libraries.jsr305
   compileOnly libraries.autoValueAnnotations

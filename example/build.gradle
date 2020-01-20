@@ -2,9 +2,9 @@ apply plugin: 'java'
 
 dependencies {
     annotationProcessor libraries.autoValue
-    annotationProcessor project(':auto-value-moshi')
+    annotationProcessor project(':auto-value-moshi-extension')
     annotationProcessor project(':auto-value-moshi-factory')
-    compileOnly project(':auto-value-moshi')
+    compileOnly project(':auto-value-moshi-extension')
     compileOnly libraries.autoValueAnnotations
     compile libraries.moshi
     compile project(':auto-value-moshi-runtime')
