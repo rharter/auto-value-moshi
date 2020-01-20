@@ -74,14 +74,20 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     final String humanName;
     final ExecutableElement element;
     final TypeName type;
+    final TypeName builderType;
     final ImmutableSet<String> annotations;
     final boolean isTransient;
     final ImmutableSet<AnnotationMirror> jsonQualifiers;
     final boolean hasJsonQualifiers;
 
     @Nullable
-    static Property create(Messager messager, String name, ExecutableElement element) {
-      Property property = new Property(name, element);
+    static Property create(
+        Messager messager,
+        String name,
+        ExecutableElement element,
+        TypeMirror actualType
+    ) {
+      Property property = new Property(name, element, actualType);
       if (property.isTransient() && !property.nullable()) {
         messager.printMessage(Diagnostic.Kind.ERROR, "Required property cannot be transient!", element);
         return null;
@@ -90,12 +96,13 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       }
     }
 
-    private Property(String name, ExecutableElement element) {
+    private Property(String name, ExecutableElement element, TypeMirror actualType) {
       this.methodName = element.getSimpleName().toString();
       this.humanName = name;
       this.element = element;
 
-      type = TypeName.get(element.getReturnType());
+      type = TypeName.get(actualType);
+      builderType = TypeName.get(element.getReturnType());
       isTransient = element.getAnnotation(AutoTransient.class) != null;
       ImmutableSet.Builder<String> builder = ImmutableSet.builder();
       ImmutableSet.Builder<AnnotationMirror> qualifiersBuilder = ImmutableSet.builder();
@@ -203,9 +210,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
 
   @Override public String generateClass(Context context, String className, String classToExtend,
       boolean isFinal) {
-    List<Property> properties = readProperties(
-        context.processingEnvironment().getMessager(),
-        context.properties());
+    List<Property> properties = readProperties(context);
 
     List<? extends TypeParameterElement> typeParams = context.autoValueClass().getTypeParameters();
     boolean shouldCreateGenerics = typeParams != null && typeParams.size() > 0;
@@ -340,12 +345,16 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     }
   }
 
-  private List<Property> readProperties(
-      Messager messager,
-      Map<String, ExecutableElement> properties) {
+  private List<Property> readProperties(AutoValueExtension.Context context) {
+    Map<String, ExecutableElement> properties = context.properties();
     List<Property> values = new LinkedList<>();
     for (Map.Entry<String, ExecutableElement> entry : properties.entrySet()) {
-      Property prop = Property.create(messager, entry.getKey(), entry.getValue());
+      Property prop = Property.create(
+          context.processingEnvironment().getMessager(),
+          entry.getKey(),
+          entry.getValue(),
+          context.propertyTypes().get(entry.getKey())
+      );
       if (prop != null) {
         values.add(prop);
       }
@@ -742,7 +751,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     // If setter param type matches field type
     Optional<MethodSpec> setter = setterMethodSpecs
             // Find setter with param type equal to field type.
-            .filter(methodSpec -> methodSpec.parameters.get(0).type.equals(prop.type))
+            .filter(methodSpec -> methodSpec.parameters.get(0).type.equals(prop.builderType))
             .findFirst();
 
     if (setter.isPresent()) {
