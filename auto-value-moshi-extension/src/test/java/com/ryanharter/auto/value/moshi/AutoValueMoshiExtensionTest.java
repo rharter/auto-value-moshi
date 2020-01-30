@@ -1,7 +1,9 @@
 package com.ryanharter.auto.value.moshi;
 
 import com.google.auto.value.processor.AutoValueProcessor;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
 import java.io.ByteArrayInputStream;
@@ -2466,6 +2468,51 @@ public final class AutoValueMoshiExtensionTest {
         .processedWith(new AutoValueProcessor())
         .failsToCompile()
         .withErrorContaining("Required property cannot be transient!");
+  }
+
+  @Test public void proguardRulesShouldUseReflectionName() {
+    JavaFileObject source = JavaFileObjects.forSourceString("test.Test", "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.squareup.moshi.JsonClass;\n"
+        + "import com.squareup.moshi.JsonQualifier;\n"
+        + "import java.lang.annotation.Retention;\n"
+        + "\n"
+        + "import static java.lang.annotation.RetentionPolicy.RUNTIME;\n"
+        + "\n"
+        + "public abstract class Test {\n"
+        + "\n"
+        + "  @Retention(RUNTIME)\n"
+        + "  @JsonQualifier\n"
+        + "  public @interface NestedQualifier {\n"
+        + "  }\n"
+        + "  \n"
+        + "  @JsonClass(generateAdapter = true, generator = \"avm\")\n"
+        + "  @AutoValue\n"
+        + "  public static abstract class InnerClass {\n"
+        + "    @NestedQualifier\n"
+        + "    abstract String property();\n"
+        + "  }\n"
+        + "}");
+
+
+    JavaFileObject expectedProguard = proguardResource(
+        "META-INF/proguard/avm-test.Test.InnerClass.pro",
+        "-if class test.Test$InnerClass\n"
+            + "-keepnames class test.Test$InnerClass\n"
+            + "-if class test.Test$InnerClass\n"
+            + "-keep class test.Test_InnerClassJsonAdapter {\n"
+            + "    public <init>(com.squareup.moshi.Moshi);\n"
+            + "    private com.squareup.moshi.JsonAdapter propertyAdapter;\n"
+            + "}\n"
+            + "-if class test.Test$InnerClass\n"
+            + "-keep @interface test.Test$NestedQualifier\n");
+
+    assertAbout(javaSources())
+        .that(ImmutableList.of(source))
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueMoshiExtension())))
+        .compilesWithoutError()
+        .and()
+        .generatesFiles(expectedProguard);
   }
 
   private static JavaFileObject proguardResource(String path, String source) {

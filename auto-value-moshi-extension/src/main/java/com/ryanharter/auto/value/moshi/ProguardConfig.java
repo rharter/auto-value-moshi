@@ -68,7 +68,7 @@ abstract class ProguardConfig {
     //    private final {adapter fields}
     // }
     //
-    String targetName = targetClass().canonicalName();
+    String targetName = targetClass().reflectionName();
     String adapterCanonicalName = adapterName().canonicalName();
 
     if (isExternal()) {
@@ -106,7 +106,7 @@ abstract class ProguardConfig {
 
       qualifierProperties().stream()
           .flatMap(prop -> prop.qualifiers().stream())
-          .map(ClassName::canonicalName)
+          .map(ClassName::reflectionName)
           .sorted()
           .forEach(qualifier -> {
             try {
