@@ -843,11 +843,11 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
 
   private static String proguardNameOf(TypeName typeName) {
     if (typeName instanceof ClassName) {
-      return ((ClassName) typeName).canonicalName();
+      return ((ClassName) typeName).reflectionName();
     } else if (typeName instanceof ArrayTypeName) {
       return proguardNameOf(((ArrayTypeName) typeName).componentType) + "[]";
     } else if (typeName instanceof ParameterizedTypeName) {
-      return ((ParameterizedTypeName) typeName).rawType.canonicalName();
+      return ((ParameterizedTypeName) typeName).rawType.reflectionName();
     } else if (typeName instanceof TypeVariableName) {
       return "java.lang.Object";
     } else {
