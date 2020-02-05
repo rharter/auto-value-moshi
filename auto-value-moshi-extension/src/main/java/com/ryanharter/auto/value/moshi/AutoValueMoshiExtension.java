@@ -463,7 +463,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
         constructor.addStatement("this.$N = $N.<$T>adapter($L$L)$L",
                 moshiField,
                 moshiInstance,
-                typeName,
+                typeName.box(),
                 adapterTargetType,
                 possibleQualifierLookup,
                 nullabilityMethod);
@@ -474,7 +474,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
         constructor.addStatement("this.$N = $N.<$T>adapter($N[$L]$L)$L",
             moshiField,
             moshiInstance,
-            prop.type,
+            prop.type.box(),
             typesArray,
             getTypeIndexInArray(genericTypeNames, prop.type),
             possibleQualifierLookup,
@@ -484,7 +484,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
         boolean specifyGenerics = prop.type instanceof ParameterizedTypeName
             || !possibleQualifierLookup.isEmpty();
         CodeBlock possibleGenerics = specifyGenerics
-            ? CodeBlock.of("<$T>", prop.type)
+            ? CodeBlock.of("<$T>", prop.type.box())
             : CodeBlock.of("");
         constructor.addStatement("this.$N = $N.$Ladapter($L$L)$L",
             moshiField,
