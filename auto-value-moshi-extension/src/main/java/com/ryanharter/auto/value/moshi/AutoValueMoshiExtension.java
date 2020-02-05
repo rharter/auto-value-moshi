@@ -44,7 +44,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
@@ -57,6 +56,9 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
 
+import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.common.collect.Iterables.tryFind;
+import static java.util.Objects.requireNonNull;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -616,8 +618,9 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       Set<ExecutableElement> builderMethods = builderContext.builderMethods();
 
       if (builderMethods.size() > 1) {
+        @SuppressWarnings("UnstableApiUsage")
         Set<ExecutableElement> annotatedMethods = builderMethods.stream()
-                .filter(e -> MoreElements.isAnnotationPresent(e, AutoValueMoshiBuilder.class))
+                .filter(e -> isAnnotationPresent(e, AutoValueMoshiBuilder.class))
                 .collect(Collectors.toSet());
 
         if (annotatedMethods.size() > 1) {
@@ -666,8 +669,9 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
           builderMethod = builderMethods.stream().findFirst().get();
         } else {
           // Otherwise, find the only builder method that is annotated.
+          @SuppressWarnings("UnstableApiUsage")
           Set<ExecutableElement> annotatedMethods = builderMethods.stream()
-                  .filter(e -> MoreElements.isAnnotationPresent(e, AutoValueMoshiBuilder.class))
+                  .filter(e -> isAnnotationPresent(e, AutoValueMoshiBuilder.class))
                   .collect(Collectors.toSet());
 
           if (annotatedMethods.size() == 1) {
@@ -704,7 +708,15 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       FieldSpec adapter = adapters.get(property);
       readMethod.beginControlFlow("case $L:", names.indexOf(property.serializedName()));
       if (builderField.isPresent()) {
-        addBuilderFieldSetting(block, property, adapter, reader, builderField.get(), builderContext);
+        addBuilderFieldSetting(
+            processingEnvironment.getTypeUtils(),
+            block,
+            property,
+            adapter,
+            reader,
+            builderField.get(),
+            builderContext
+        );
       } else {
         FieldSpec localField = fields.get(property);
         constructorCall.add(CodeBlock.of("$N", localField));
@@ -739,29 +751,46 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
     block.addStatement("$N = this.$N.fromJson($N)", field, adapter, reader);
   }
 
-  private static void addBuilderFieldSetting(CodeBlock.Builder block,
-                                             Property prop,
-                                             FieldSpec adapter,
-                                             ParameterSpec jsonReader,
-                                             FieldSpec builder,
-                                             BuilderContext builderContext) {
-    Stream<MethodSpec> setterMethodSpecs = builderContext.setters().get(prop.humanName).stream()
-            .map(setterMethod -> MethodSpec.overriding(setterMethod).build());
+  private static void addBuilderFieldSetting(
+      javax.lang.model.util.Types types,
+      CodeBlock.Builder block,
+      Property prop,
+      FieldSpec adapter,
+      ParameterSpec jsonReader,
+      FieldSpec builder,
+      BuilderContext builderContext) {
+    Set<ExecutableElement> setters = builderContext.setters().get(prop.humanName);
+    if (!setters.isEmpty()) {
+      // TODO limit this to only autovalue types
+      // Try to find the appropriate method. Order of preferences are:
+      // - Annotated with AutoValueMoshiBuilder.Setter
+      // - First type with the same signature (i.e. List -> List)
+      // - First assignable type (i.e. List -> Collection). isAssignable -> param 1 is a param 2
+      @SuppressWarnings("UnstableApiUsage")
+      ExecutableElement setter = tryFind(setters, method -> isAnnotationPresent(requireNonNull(method), AutoValueMoshiBuilder.Setter.class))
+          .toJavaUtil()
+          .orElseGet(() -> {
+            //noinspection CodeBlock2Expr
+            return tryFind(setters, method -> prop.builderType.equals(ParameterSpec.get(requireNonNull(method).getParameters().get(0)).type)).toJavaUtil()
+                .orElseGet(() -> {
+                  //noinspection CodeBlock2Expr
+                  return tryFind(setters, method -> types.isAssignable(prop.element.getReturnType(), requireNonNull(method).getParameters().get(0).asType())).orNull();
+                });
+          });
 
-    // If setter param type matches field type
-    Optional<MethodSpec> setter = setterMethodSpecs
-            // Find setter with param type equal to field type.
-            .filter(methodSpec -> methodSpec.parameters.get(0).type.equals(prop.builderType))
-            .findFirst();
-
-    if (setter.isPresent()) {
-      block.addStatement("$N.$N($N.fromJson($N))", builder, setter.get(), adapter, jsonReader);
-    } else {
-      // Optional fields are not supported.
-      String errorMsg =
-              "Setter not found for " + prop.element;
-      throw new IllegalArgumentException(errorMsg);
+      if (setter != null) {
+        block.addStatement("$N.$N($N.fromJson($N))",
+            builder,
+            setter.getSimpleName().toString(),
+            adapter,
+            jsonReader);
+        return;
+      }
     }
+
+    // Optional fields are not supported.
+    String errorMsg = "Setter not found for " + prop.element;
+    throw new IllegalArgumentException(errorMsg);
   }
 
   private String defaultValue(TypeName type) {
