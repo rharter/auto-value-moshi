@@ -730,7 +730,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       readMethod.addStatement("return $N.$L", builderField.get(), builderContext.buildMethod().get());
     } else {
       CodeBlock params = CodeBlock.join(constructorCall, ", ");
-      readMethod.addStatement("return new $T($L)", className, params);
+      readMethod.addStatement("return new $N($L)", className.simpleName().replaceAll("\\$", ""), params);
     }
     return readMethod.build();
   }
