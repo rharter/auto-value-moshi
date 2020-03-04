@@ -7,7 +7,7 @@ An extension for Google's [AutoValue](https://github.com/google/auto) that creat
 ## Usage
 
 Simply include auto-value-moshi in your project and annotate your target autovalue class with Moshi's
-`@JsonClass` annotation. `generateAdpater` must be true, and the `generator` property value should
+`@JsonClass` annotation. `generateAdapter` must be true, and the `generator` property value should
 be `"avm"`.
 
 ```java
