@@ -14,12 +14,10 @@ be `"avm"`.
 @JsonClass(generateAdapter = true, generator = "avm")
 @AutoValue
 public abstract class Foo {
-  abstract String bar();
-  @Json(name="Baz") abstract String baz();
 
-  public static JsonAdapter<Foo> jsonAdapter(Moshi moshi) {
-    return new AutoValue_Foo.MoshiJsonAdapter(moshi);
-  }
+  abstract String bar();
+
+  @Json(name="Baz") abstract String baz();
 }
 ```
 
@@ -131,7 +129,7 @@ Add a Gradle dependency:
 
 ```kotlin
 annotationProcessor("com.ryanharter.auto.value:auto-value-moshi-extension:1.0.0")
-implementation("com.ryanharter.auto.value:auto-value-moshi-runtime:1.0.0")
+implementation("com.ryanharter.auto.value:auto-value-moshi-annotations:1.0.0")
 
 // If using optional @MoshiAdapterFactory factory
 annotationProcessor("com.ryanharter.auto.value:auto-value-moshi-factory:1.0.0")
