@@ -243,8 +243,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
         autoValueClassName,
         genericTypeNames,
         properties,
-        context.builder().orElse(null),
-        context.processingEnvironment(),
+        context,
         adapterClassName);
 
     Optional<AnnotationSpec> generatedAnnotation = GeneratedAnnotationSpecs.generatedAnnotationSpec(
@@ -419,8 +418,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       ClassName autoValueClassName,
       TypeVariableName[] genericTypeNames,
       List<Property> properties,
-      @Nullable BuilderContext builderContext,
-      ProcessingEnvironment processingEnvironment,
+      Context context,
       String adapterClassName
   ) {
 
@@ -504,7 +502,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
         .addFields(adapters.values())
         .addMethod(constructor.build())
         .addMethod(createReadMethod(className, autoValueClassName, autoValueTypeName, properties,
-                adapters, names, builderContext, processingEnvironment))
+                adapters, names, context))
         .addMethod(createWriteMethod(autoValueTypeName, adapters))
         .addMethod(MethodSpec.methodBuilder("toString")
             .addAnnotation(Override.class)
@@ -591,8 +589,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
 
   private MethodSpec createReadMethod(ClassName className, ClassName autoValueClassName, TypeName autoValueTypeName,
                                       List<Property> properties, ImmutableMap<Property, FieldSpec> adapters,
-                                      List<String> names, @Nullable BuilderContext builderContext,
-                                      ProcessingEnvironment processingEnvironment) {
+                                      List<String> names, Context context) {
     NameAllocator nameAllocator = new NameAllocator();
     ParameterSpec reader = ParameterSpec.builder(JsonReader.class, nameAllocator.newName("reader"))
         .build();
@@ -602,10 +599,11 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
         .returns(autoValueTypeName)
         .addParameter(reader)
         .addException(IOException.class);
+    BuilderContext builderContext = context.builder().orElse(null);
     // Validate the builderContext if there is one.
     if (builderContext != null) {
       if (!builderContext.buildMethod().isPresent()) {
-        processingEnvironment.getMessager()
+        context.processingEnvironment().getMessager()
                 .printMessage(
                         Diagnostic.Kind.ERROR,
                         "Could not determine the build method. Make sure it is named \"build\".",
@@ -621,7 +619,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
                 .collect(Collectors.toSet());
 
         if (annotatedMethods.size() > 1) {
-          processingEnvironment.getMessager()
+          context.processingEnvironment().getMessager()
                   .printMessage(
                           Diagnostic.Kind.ERROR,
                           "Too many @AutoValueMoshiBuilder annotated builder methods.",
@@ -631,7 +629,7 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
         }
 
         if (annotatedMethods.isEmpty()) {
-          processingEnvironment.getMessager().printMessage(
+          context.processingEnvironment().getMessager().printMessage(
                   Diagnostic.Kind.ERROR,
                   "Too many builder methods. Annotate builder method with @AutoValueMoshiBuilder.",
                   builderMethods.stream().findAny().get()
@@ -730,7 +728,8 @@ public final class AutoValueMoshiExtension extends AutoValueExtension {
       readMethod.addStatement("return $N.$L", builderField.get(), builderContext.buildMethod().get());
     } else {
       CodeBlock params = CodeBlock.join(constructorCall, ", ");
-      readMethod.addStatement("return new $T($L)", className, params);
+      ClassName constructorName = ClassName.bestGuess(context.finalAutoValueClassName());
+      readMethod.addStatement("return new $T($L)", constructorName, params);
     }
     return readMethod.build();
   }
