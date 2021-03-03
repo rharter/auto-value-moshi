@@ -1,5 +1,5 @@
 apply plugin: 'java-library'
-apply plugin: 'maven-publish'
+apply plugin: 'com.vanniktech.maven.publish'
 
 sourceCompatibility = versions.java
 targetCompatibility = versions.java
@@ -8,5 +8,3 @@ dependencies {
   api libraries.moshi
   api libraries.autoTransient
 }
-
-apply from: rootProject.file('gradle/gradle-mvn-push.gradle')
