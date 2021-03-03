@@ -8,7 +8,6 @@ buildscript {
 
   dependencies {
     classpath 'net.ltgt.gradle:gradle-apt-plugin:0.19'
-    classpath 'com.vanniktech:gradle-maven-publish-plugin:0.14.2'
   }
 }
 
