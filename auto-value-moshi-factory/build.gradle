@@ -58,5 +58,3 @@ dependencies {
     testImplementation files(Jvm.current().getToolsJar())
   }
 }
-
-apply from: rootProject.file('gradle/gradle-mvn-push.gradle')
