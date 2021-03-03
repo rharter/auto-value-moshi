@@ -1,9 +1,9 @@
 import org.gradle.internal.jvm.Jvm
 
 plugins {
-  id 'com.github.johnrengelman.shadow' version '6.1.0'
+  id 'com.github.johnrengelman.shadow' version '5.2.0'
   id 'java-library'
-  id 'com.vanniktech.maven.publish'
+  id 'maven-publish'
 }
 
 //<editor-fold desc="ShadowJar configuration">
@@ -60,3 +60,5 @@ dependencies {
     testImplementation files(Jvm.current().getToolsJar())
   }
 }
+
+apply from: rootProject.file('gradle/gradle-mvn-push.gradle')

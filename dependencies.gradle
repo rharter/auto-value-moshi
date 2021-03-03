@@ -1,20 +1,22 @@
+import org.gradle.internal.jvm.Jvm
+
 ext {
     versions = [
         java          : JavaVersion.VERSION_1_8,
         // Main dependencies
-        javaPoet      : '1.13.0',
-        autoCommon    : '0.11',
+        javaPoet      : '1.12.0',
+        autoCommon    : '0.10',
         autoTransient : '1.0.0',
         autoValue     : '1.7',
-        autoService   : '1.0-rc7',
-        guava         : '30.1-jre',
-        moshi         : '1.11.0',
-        incapHelper   : '0.3',
+        autoService   : '1.0-rc6',
+        guava         : '27.1-jre',
+        moshi         : '1.9.2',
+        incapHelper   : '0.2',
         jsr305        : '3.0.2',
         // For testing
-        junit         : '4.13.2',
-        truth         : '1.1.2',
-        compileTesting: '0.19',
+        junit         : '4.12',
+        truth         : '1.0',
+        compileTesting: '0.18',
         assertJ       : '2.5.0',
     ]
 
