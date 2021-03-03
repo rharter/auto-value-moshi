@@ -1,5 +1,13 @@
 # Change Log
 
+## Version 1.1.0 (2021-03-03)
+
+* Clean up misc gson name references in code and examples (#163)
+* Fix proguard names for inner classes (#165)
+* Fix runtime artifact ID (#170)
+* Box generics in adapter calls (#171)
+* Fix createReadMethod return statement constructor type (#179)
+
 ## Version 1.0.0 (2020-01-19)
 
 Note that this 1.0 release updates the gradle dependency name to `auto-value-moshi-extension`, and the optional `MoshiAdapterFactory` lives in a different dependency.

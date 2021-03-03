@@ -128,11 +128,11 @@ this should only be applied to nullable properties.
 Add a Gradle dependency:
 
 ```kotlin
-annotationProcessor("com.ryanharter.auto.value:auto-value-moshi-extension:1.0.0")
-implementation("com.ryanharter.auto.value:auto-value-moshi-runtime:1.0.0")
+annotationProcessor("com.ryanharter.auto.value:auto-value-moshi-extension:1.1.0")
+implementation("com.ryanharter.auto.value:auto-value-moshi-runtime:1.1.0")
 
 // If using optional @MoshiAdapterFactory factory
-annotationProcessor("com.ryanharter.auto.value:auto-value-moshi-factory:1.0.0")
+annotationProcessor("com.ryanharter.auto.value:auto-value-moshi-factory:1.1.0")
 ```
 
 ## License
